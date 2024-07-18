@@ -168,14 +168,15 @@ summary(h3_lm)
 ```{r h3_lm_valence, echo=FALSE}
 
 # new factorization
-feedback_valence <- subset(trial_data, feedback != "neutral")
-
-feedback_valence$feedback <- factor(feedback_valence$feedback, levels = c("positive", "negative"))
+trial_data$feedback <- factor(trial_data$feedback, levels = c("positive", "negative", "neutral"))
 
 # full model
-h3_lm_valence <- lmer(sqrt(SoC) ~ feedback * input_noise_magnitude + (1|code), data = feedback_valence)
+h3_lm_valence <- lmer(sqrt(SoC) ~ feedback * input_noise_magnitude + (1|code), data = trial_data)
 
 summary(h3_lm_valence)
+
+# old contrasts
+trial_data$feedback <- factor(trial_data$feedback, levels = c("neutral", "positive", "negative"))
 
 ```
 
@@ -197,7 +198,7 @@ fixef(h3_lm)[6]**2
 parametric bootstrap:
 ```{r h3_bootstrap, echo=FALSE}
 
-confint(h3_lm, nsim=N_iterations, parm=c('feedbacknegative', 'input_noise_magnitude2', 'feedbacknegative:input_noise_magnitude2'), method='boot')
+confint(h3_lm, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative', 'input_noise_magnitude2', 'feedbackpositive:input_noise_magnitude2', 'feedbacknegative:input_noise_magnitude2'), method='boot')
 
 ```
 
