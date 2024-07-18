@@ -1,0 +1,253 @@
+---
+title: "linefollow_analysis"
+author: "Nils Wendel Heinrich"
+date: "2024-07-17"
+output: pdf_document
+---
+
+```{r global, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(sjPlot)
+library(latex2exp)
+library(ggplot2)
+library(fitdistrplus)
+library(simr)
+library(arrow)
+library(MASS)
+library(MuMIn)
+
+set.seed(36)
+N_iterations <- 100
+
+```
+
+
+```{r data, echo=FALSE}
+
+trial_data <- read_csv("data/trialwise_data.csv")
+
+# factorization
+trial_data$feedback <- factor(trial_data$feedback, levels = c("neutral", "positive", "negative"))
+
+trial_data$input_noise_magnitude <- factor(trial_data$input_noise_magnitude)
+
+```
+
+# H1: Perceived control over spaceship trajectory is expected to be higher for low-input noise spaceship than high-input noise spaceship.
+
+Distributional analysis:
+```{r h1_boxcox, echo=FALSE}
+
+lambda_soc <- boxcox(lm(trial_data$SoC ~ 1))
+
+lambda_soc$x[which(lambda_soc$y == max(lambda_soc$y))]
+
+```
+referring to:
+https://www.statisticshowto.com/probability-and-statistics/normal-distributions/box-cox-transformation/
+
+lambda, the expected value is closer to 0.5 than 1 (1 would be ideal, suggesting no transformation). 0.5 implies a √ transformation, which we will apply. 
+"a boxcox distributional analysis implied a square root transformation of the predicted variable"
+
+
+### null model
+```{r h1_lm, echo=FALSE}
+soc_null <- lmer(sqrt(SoC) ~ 1 + (1|code), data = trial_data)
+```
+
+
+...
+```{r h1_lm, echo=FALSE}
+
+h1_lm <- lmer(sqrt(SoC) ~ input_noise_magnitude + (1|code), data = trial_data)
+
+summary(h1_lm)
+
+```
+We detect a significant effect for input_noise_magnitude on SoC (p<.001).
+
+proportional variance explained by our random effect (participant) code
+```{r h1_icc, echo=FALSE}
+
+#Intraclass correlation coefficient
+performance::icc(h1_lm)
+
+```
+
+```{r h1_r_squared, echo=FALSE}
+
+r_full <- r.squaredGLMM(h1_lm)
+# R2m is variance of fixed effects
+
+r_null <- r.squaredGLMM(soc_null)
+
+fixed_effects_variance <- r_full[1,"R2m"] - r_null[1,"R2m"]
+fixed_effects_variance
+```
+
+```{r h1_coefs, echo=FALSE}
+
+#intercept:
+fixef(h1_lm)[1]**2
+# mean response across all participants (code) when input_noise_magnitude = 0.5
+
+# slope
+fixef(h1_lm)[2]**2
+# mean difference in response across all participants (code) when input_noise_magnitude jumps from 0.5 to 2.0
+
+```
+
+parametric bootstrap:
+```{r h1_bootstrap, echo=FALSE}
+
+confint(h1_lm, nsim=N_iterations, parm=c('input_noise_magnitude2'), method='boot')
+
+```
+
+bounds of the 95% confidence interval were obtained by a parametric bootstrap with {N_iterations} iterations.
+
+reporting our effect:
+...increasing magnitude of input noise significantly decreases SoC (beta={fixef(h1_lm)[2]**2}, CI=[-0.5528189, -0.5290939],  p<.001).
+
+
+# H2: Perceived control is higher during trials with positive compared to neutral and negative feedback (testing illusion of control)
+
+```{r h2_lm, echo=FALSE}
+
+h2_lm <- lmer(sqrt(SoC) ~ feedback + (1|code), data = trial_data)
+
+summary(h2_lm)
+
+```
+
+```{r h2_coefs, echo=FALSE}
+
+#intercept:
+fixef(h2_lm)[1]**2
+# mean response across all participants (code) when feedback is neutral
+
+# slopes:
+fixef(h2_lm)[2]**2
+# mean difference in response across all participants (code) when feedback is positive compared to neutral
+
+fixef(h2_lm)[3]**2
+# mean difference in response across all participants (code) when feedback is negative compared to neutral
+
+```
+
+parametric bootstrap:
+```{r h2_bootstrap, echo=FALSE}
+
+confint(h2_lm, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative'), method='boot')
+
+```
+
+# H3: Effect of feedback on SoC ratings is higher in high input noise blocks (interaction effect feedback x input noise => SoC)
+
+```{r h3_lm, echo=FALSE}
+
+# full model
+h3_lm <- lmer(sqrt(SoC) ~ feedback * input_noise_magnitude + (1|code), data = trial_data)
+
+summary(h3_lm)
+
+```
+
+:( no significant interaction effects.
+
+### Changing contrasts so to compare positive and negative feedback:
+
+```{r h3_lm_valence, echo=FALSE}
+
+# new factorization
+feedback_valence <- subset(trial_data, feedback != "neutral")
+
+feedback_valence$feedback <- factor(feedback_valence$feedback, levels = c("positive", "negative"))
+
+# full model
+h3_lm_valence <- lmer(sqrt(SoC) ~ feedback * input_noise_magnitude + (1|code), data = feedback_valence)
+
+summary(h3_lm_valence)
+
+```
+
+```{r h3_coefs, echo=FALSE}
+
+#intercept:
+fixef(h3_lm)[1]**2
+# mean response across all participants (code) when feedback is neutral
+
+# slopes:
+fixef(h3_lm)[5]**2
+# ...
+
+fixef(h3_lm)[6]**2
+# ...
+
+```
+
+parametric bootstrap:
+```{r h3_bootstrap, echo=FALSE}
+
+confint(h3_lm, nsim=N_iterations, parm=c('feedbacknegative', 'input_noise_magnitude2', 'feedbacknegative:input_noise_magnitude2'), method='boot')
+
+```
+
+# H4: Performance (line deviation) is higher for low-input noise spaceship than high-input noise spaceship
+
+Distributional analysis:
+```{r avg_boxcox, echo=FALSE}
+
+lambda_avg <- boxcox(lm(trial_data$avg_dist_trialwise ~ 1))
+
+lambda_avg$x[which(lambda_avg$y == max(lambda_avg$y))]
+
+```
+
+The expected value, lambda is close to 0, which implies a log transformation.
+
+```{r h3_lm, echo=FALSE}
+
+# full model
+h4_lm <- lmer(log(avg_dist_trialwise) ~ input_noise_magnitude + (1|code), data = trial_data)
+
+summary(h4_lm)
+
+```
+
+```{r h4_coefs, echo=FALSE}
+
+#intercept:
+exp(fixef(h4_lm)[1])
+# ...
+
+# slopes:
+exp(fixef(h4_lm)[2])
+# ...
+
+
+```
+
+proportional variance explained by our random effect (participant) code
+```{r h4_icc, echo=FALSE}
+
+#Intraclass correlation coefficient
+performance::icc(h4_lm)
+
+```
+
+parametric bootstrap:
+```{r h4_bootstrap, echo=FALSE}
+
+confint(h4_lm, nsim=N_iterations, parm=c('input_noise_magnitude2'), method='boot')
+
+```
+
