@@ -1,0 +1,393 @@
+---
+title: "COAF - Participant Descriptives"
+author: "Maren Giersiepen"
+date: "2024-07-17"
+output:
+  html_document:
+    keep_md: yes
+    theme: cosmo
+  pdf_document: default
+editor_options:
+  chunk_output_type: console
+---
+# Participant Descriptives of the SPACE Experiment. A collaborative study conducted by the COMPAS and AffAct projects part of the priority program The Active Self. In the task underlying the collected data, participants perform a motor adaptation task in which they steer a stimulus down a pre-defined line using button presses on the keyboard and using the keys [Y] and [M].
+
+## In this script, participant descriptieves are evauated
+
+## Date: 23.07.2024**
+## Version: 1**
+
+### Install Packages
+```{r, install-packages, message=F, warning=F, include=F}
+#install.packages("lattice") 
+#install.packages("ggplot2")      # for figures
+#install.packages("lavaan")
+# install.packages("psych")               # for basic calculations
+# install.packages("foreign")             # xxx
+# install.packages("car")                 # xxx
+# install.packages("corpcor")             # for correlations
+# install.packages("Hmisc")               # xxx
+# install.packages("polycor")             # xxx
+# install.packages("apaTables")           # for exporting tables according to APA style
+# install.packages("QuantPsyc")           # xxx
+# install.packages("effsize")             # xxx
+# install.packages("tidyverse")           # for transforming data
+# install.packages("readxl")              # for loading and exporting datasets
+# install.packages("writexl")             # for loading and exporting datasets
+# install.packages("bannerCommenter")     # for section headers
+# install.packages("reshape2")            # for reshaping datasets
+# install.packages("responsePatterns")    # for check of response patterns
+# install.packages("corrplot")            # for correlation tables
+# install.packages("gsubfn")              # for subsetting strings
+# install.packages("data.table")          # for creating data tables
+# install.packages("RColorBrewer")        # for colours in plots
+# install.packages("pals")                # for colours in plots
+# install.packages("devtools")
+# install.packages("usethis")
+# install.packages("lavaan")              # required to run SEMs
+# install.packages("lavModel")            # required to run SEMs
+# install.packages("ROCR")                # required to create ROC curves
+# install.packages("janitor")
+# install.packages("foreign")             # to load SPSS datafiles
+# install.packages("sjlabelled")          # to remove SPSS labels from dataset
+# install.packages("mice")
+# install.packages("multcomp")
+# install.packages("ggpubr")
+# install.packages("PairedData")
+# install.packages("lme4")
+# install.packages("emmeans")
+# install.packages("multcompView")
+# install.packages("nlme")
+# install.packages("ez")
+# install.packages("BayesFactor")
+# install.packages("svglite")
+```
+
+### Load Packages
+```{r, load-packages, message=F, warning=F, include=F} 
+library("dplyr")
+library("ggplot2")
+library("ggpubr")
+library("lattice")
+library("svglite")
+library("devtools")
+library("gridExtra")
+library("readxl")
+library("tidyverse")
+#library("pals")
+#library("lavaan")
+#library("psych")
+#library("foreign")
+#library("car")
+#library("corpcor")
+#library("Hmisc")
+#library("polycor")
+#library("apaTables")
+#library("QuantPsyc")
+#library("effsize")
+#library("writexl")
+#library("bannerCommenter")
+#library("reshape2")
+#library("responsePatterns")
+#library("corrplot") 
+#library("gsubfn")
+#library("purrr")
+#library("data.table")
+#library("RColorBrewer")
+#library("usethis")
+#library("lavaan")
+#library("ROCR")
+#library("githubinstall")
+#library("stats")
+#library("tidyr")
+#library("report")
+#library("janitor")
+#library("foreign")
+#library("sjlabelled")
+#library("mice")
+library("rstatix")
+#library("multcomp")
+#library("PairedData")
+library("lme4")
+#library("emmeans")
+#library("multcompView")
+#library("nlme")
+#library("ez")
+#library("BayesFactor")
+```
+
+### Load Data
+```{r, load behavioral data, include = F}
+#1) load experimental data of all participants
+main_folder <- "H:/Maren/Experiments/COAF/Main/data/experiment_preprocessed"
+data_files <- list.files(main_folder, pattern = "data", full.names = TRUE)
+
+final_data <- read.csv(data_files[1])
+trialwise_data <- read.csv(data_files[2])
+
+#1) load questionnaire data of all participants
+main_folder <- "H:/Maren/Experiments/COAF/Main/data/questionnaires"
+data_file <- list.files(main_folder, pattern = "data", full.names = TRUE)
+
+for (file in data_file) {
+  questionnaire_raw_allPP <- read_excel(file)
+}
+```
+
+```{r, set correct variable levels, include = F}
+final_data$code <- as.factor(final_data$code)
+trialwise_data$code <- as.factor(trialwise_data$code)
+
+final_data$input_noise_magnitude <- as.factor(final_data$input_noise_magnitude)
+trialwise_data$input_noise_magnitude <- as.factor(trialwise_data$input_noise_magnitude)
+
+final_data$feedback <- as.factor(final_data$feedback)
+trialwise_data$feedback <- as.factor(trialwise_data$feedback)
+
+```
+
+```{r, evaluate participant descriptives, using the entire sample, include = T}
+
+#Sample size
+N_total <- length(unique(final_data$code))
+print(N_total) 
+
+#Age
+#create one row per participant
+ppwise_data <- final_data %>%
+  group_by(code) %>%
+  slice(1)
+
+#mean age
+M_age <- mean(ppwise_data$age) 
+print(M_age)
+
+#sd_age 
+SD_age <- sd(ppwise_data$age) 
+print(SD_age)
+
+#range of age values (should be between 18 and 45 according to inclusion criteria)
+min_age <- min(ppwise_data$age)
+print(min_age) 
+
+max_age <- max(ppwise_data$age)
+print(max_age) 
+
+#Gender distribution
+females <- sum(ppwise_data$gender == "f")
+print(females) 
+
+males <- sum(ppwise_data$gender == "m")
+print(males) 
+
+
+nonbinary <- sum(ppwise_data$gender != "m" & ppwise_data$gender != "f")
+print(nonbinary) 
+```
+
+```{r, evaluate participant performance, including the entire sample, include = T}
+
+
+#(1) Below/Above average performance in steering the spaceship
+
+#calculate the average distance of each participant for each input noise condition
+descriptives_dist_ppwise <- trialwise_data %>%
+  dplyr::group_by(input_noise_magnitude, code) %>%
+  dplyr::summarise(m_dist = mean(avg_dist_trialwise), sd_dist = sd(avg_dist_trialwise))
+head(descriptives_dist_ppwise)
+
+#identify outliers as defined in identify_outliers() in R:
+# 1) Outliers: values < [1st quartile – 1.5 *interquartile range] or > [3rd quartile + 1.5 * interquartile range])
+# 2) Extreme Outliers: values < [1st quartile – 3 *interquartile range] or > [3rd quartile + 3 * interquartile range]).  
+
+outliers <- descriptives_dist_ppwise %>% 
+  group_by(input_noise_magnitude) %>%
+  rstatix::identify_outliers(m_dist)
+print(outliers)
+#=> two extreme outliers in both low and high input noise conditions, with pp12 and pp14 being the extreme outliers in both cases
+  
+
+#for visualization, create a boxplot for each condition and color outlier participants in red (geom_boxplot considers values outside 1.5 x IQR from the lowest and highest data point an outlier)
+boxplot_performance_outlier <- ggplot(descriptives_dist_ppwise, aes(x = input_noise_magnitude, y = m_dist)) +
+  geom_boxplot(outlier.colour = "red", outlier.shape = 16, outlier.size = 2) +
+  labs(title = "Boxplot for high and low input noise",
+       x = "Input Noise",
+       y = "Line Distance") +
+  theme_minimal()
+print(boxplot_performance_outlier)
+
+#(2) Unrealistic, non-compliant SoC values (e.g., same SoC rating across all trials / trials within conditions)
+#create a dataset counting frequency of individual SoC values per participant
+SoC_freq_ppwise <- trialwise_data %>%
+  dplyr::group_by(code, SoC) %>%
+  dplyr::summarise(count = n(), .groups = 'drop')
+head(SoC_freq_ppwise)
+
+#plot the data 
+#histogram of participant rating frequencies for the entire sample
+ggplot(trialwise_data, aes(x = SoC)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  facet_wrap(~ code, scales = "free_y") +
+  labs(title = "Distribution of SoC Ratings per Participant",
+       x = "SoC Rating",
+       y = "Frequency") +
+  theme_minimal()
+
+#as plotting all 50 participants in the same figure makes the plot difficult to read, create subsets of 10 participants to plot in an individual figure
+pp_set1 <- trialwise_data %>% filter(code %in% 1:10)
+pp_set2 <- trialwise_data %>% filter(code %in% 11:20)
+pp_set3 <- trialwise_data %>% filter(code %in% 21:30)
+pp_set4 <- trialwise_data %>% filter(code %in% 31:40)
+pp_set5 <- trialwise_data %>% filter(code %in% 41:50)
+
+#overview of rating distribution across all participants
+ggplot(SoC_freq_ppwise, aes(x = factor(code), y = count, fill = factor(SoC))) +
+  geom_bar(stat = "identity") +
+  labs(title = "Frequency of Each SoC Rating per Participant",
+       x = "Participant (code)",
+       y = "Frequency (count)",
+       fill = "SoC") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+#histogram of participant rating frequencies in subsets of the sample 
+ggplot(pp_set1, aes(x = SoC)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  facet_wrap(~ code, scales = "free_y") +
+  labs(title = "Distribution of SoC Ratings per Participant",
+       x = "SoC Rating",
+       y = "Frequency") +
+  theme_minimal()
+
+#=> participant 2 as very little variation in SoC ratings
+
+#histogram of participant rating frequencies in subsets of the sample 
+ggplot(pp_set2, aes(x = SoC)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  facet_wrap(~ code, scales = "free_y") +
+  labs(title = "Distribution of SoC Ratings per Participant",
+       x = "SoC Rating",
+       y = "Frequency") +
+  theme_minimal()
+
+#=> participant 14 only provided SoC Ratings = 1
+
+#histogram of participant rating frequencies in subsets of the sample 
+ggplot(pp_set3, aes(x = SoC)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  facet_wrap(~ code, scales = "free_y") +
+  labs(title = "Distribution of SoC Ratings per Participant",
+       x = "SoC Rating",
+       y = "Frequency") +
+  theme_minimal()
+
+#histogram of participant rating frequencies in subsets of the sample 
+ggplot(pp_set4, aes(x = SoC)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  facet_wrap(~ code, scales = "free_y") +
+  labs(title = "Distribution of SoC Ratings per Participant",
+       x = "SoC Rating",
+       y = "Frequency") +
+  theme_minimal()
+
+#histogram of participant rating frequencies in subsets of the sample 
+ggplot(pp_set5, aes(x = SoC)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  facet_wrap(~ code, scales = "free_y") +
+  labs(title = "Distribution of SoC Ratings per Participant",
+       x = "SoC Rating",
+       y = "Frequency") +
+  theme_minimal()
+
+#=> Based on the above performed analysis of participants' performance and SoC ratings, participant 12 and 14 are excluded from all further analyses
+
+#finally, get an overview of participant SoC rating distribution for high and los input noise trials
+ggplot(pp_set1, aes(x = SoC, fill = input_noise_magnitude)) +
+  geom_histogram(binwidth = 1, position = "dodge" , color = "black") +
+  facet_wrap(~ code, scales = "free_y") +
+  labs(title = "Distribution of SoC Ratings per Participant",
+       x = "SoC Rating",
+       y = "Frequency") +
+  theme_minimal()
+
+#finally, get an overview of participant SoC rating distribution for high and los input noise trials
+ggplot(pp_set2, aes(x = SoC, fill = input_noise_magnitude)) +
+  geom_histogram(binwidth = 1, position = "dodge" , color = "black") +
+  facet_wrap(~ code, scales = "free_y") +
+  labs(title = "Distribution of SoC Ratings per Participant",
+       x = "SoC Rating",
+       y = "Frequency") +
+  theme_minimal()
+
+
+#finally, get an overview of participant SoC rating distribution for high and los input noise trials
+ggplot(pp_set3, aes(x = SoC, fill = input_noise_magnitude)) +
+  geom_histogram(binwidth = 1, position = "dodge" , color = "black") +
+  facet_wrap(~ code, scales = "free_y") +
+  labs(title = "Distribution of SoC Ratings per Participant",
+       x = "SoC Rating",
+       y = "Frequency") +
+  theme_minimal()
+
+
+#finally, get an overview of participant SoC rating distribution for high and los input noise trials
+ggplot(pp_set4, aes(x = SoC, fill = input_noise_magnitude)) +
+  geom_histogram(binwidth = 1, position = "dodge" , color = "black") +
+  facet_wrap(~ code, scales = "free_y") +
+  labs(title = "Distribution of SoC Ratings per Participant",
+       x = "SoC Rating",
+       y = "Frequency") +
+  theme_minimal()
+
+
+#finally, get an overview of participant SoC rating distribution for high and los input noise trials
+ggplot(pp_set5, aes(x = SoC, fill = input_noise_magnitude)) +
+  geom_histogram(binwidth = 1, position = "dodge" , color = "black") +
+  facet_wrap(~ code, scales = "free_y") +
+  labs(title = "Distribution of SoC Ratings per Participant",
+       x = "SoC Rating",
+       y = "Frequency") +
+  theme_minimal()
+
+```
+
+
+```{r, evaluate participant performance, including the final sample, include = T}
+
+#exclude pp12 and pp14 from the data
+final_ppset <- ppwise_data %>%
+  subset(code != 12 & code != 14)
+
+#Sample size
+N_total <- length(unique(final_ppset$code))
+print(N_total) 
+
+#Age
+#mean age
+M_age <- mean(final_ppset$age) 
+print(M_age)
+
+#sd_age 
+SD_age <- sd(final_ppset$age) 
+print(SD_age)
+
+#range of age values (should be between 18 and 45 according to inclusion criteria)
+min_age <- min(final_ppset$age)
+print(min_age) 
+
+max_age <- max(final_ppset$age)
+print(max_age) 
+
+#Gender distribution
+females <- sum(final_ppset$gender == "f")
+print(females) 
+
+males <- sum(final_ppset$gender == "m")
+print(males) 
+
+nonbinary <- sum(final_ppset$gender != "m" & final_ppset$gender != "f")
+print(nonbinary) 
+
+```
+
