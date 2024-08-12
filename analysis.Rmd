@@ -32,12 +32,37 @@ N_iterations <- 100
 
 ```{r data, echo=FALSE}
 
-trial_data <- read_csv("data/trialwise_data.csv")
+#load data 
+#(Nils)
+#trial_data <- read_csv("data/trialwise_data.csv")
+
+#Maren
+trial_data <- read.csv("H:/Maren/Experiments/COAF/Main/data/experiment_preprocessed/trialwise_data.csv")
+questionnaire_data <- read.csv("H:/Maren/Experiments/COAF/Main/data/questionnaire_preprocessed/questionnaire_scores.csv")
 
 # factorization
 trial_data$feedback <- factor(trial_data$feedback, levels = c("neutral", "positive", "negative"))
-
 trial_data$input_noise_magnitude <- factor(trial_data$input_noise_magnitude)
+trial_data$code <- factor(trial_data$code) #added as factor variable by Maren
+
+#? also code input_noise_ascending as factor?
+
+```
+
+Create one dataset containing both the experimental data and the questionnaire scores.
+Furthermore, exclude participant 12 and 14 from all statistical analyses.
+```{r create final dataset, echo=FALSE}
+
+#exclude pp 12 and 14 from experimental data
+trial_data <- trial_data %>% filter(code != 12 & code != 14)
+
+#rename "ID" to "code"
+colnames(questionnaire_data)[colnames(questionnaire_data) == "ID"] <- "code"
+all_data <- merge(trial_data, questionnaire_data, by = "code", all.x = TRUE)
+
+#add categorical depression variable with participants scorint >= 16 (critical) scoring 1 and participants scoring < 16 scoring 0
+all_data$CESDR_cat <- ifelse(all_data$CESDR >= 16, 1, 0)
+all_data$CESDR_cat <- as.factor(all_data$CESDR_cat )
 
 ```
 
@@ -46,7 +71,7 @@ trial_data$input_noise_magnitude <- factor(trial_data$input_noise_magnitude)
 Distributional analysis:
 ```{r h1_boxcox, echo=FALSE}
 
-lambda_soc <- boxcox(lm(trial_data$SoC ~ 1))
+lambda_soc <- boxcox(lm(all_data$SoC ~ 1))
 
 lambda_soc$x[which(lambda_soc$y == max(lambda_soc$y))]
 
@@ -58,16 +83,25 @@ lambda, the expected value is closer to 0.5 than 1 (1 would be ideal, suggesting
 "a boxcox distributional analysis implied a square root transformation of the predicted variable"
 
 
-### null model
+### null model 
+predict mean (independent of any predictors) SoC rating
 ```{r h1_lm, echo=FALSE}
-soc_null <- lmer(sqrt(SoC) ~ 1 + (1|code), data = trial_data)
+soc_null <- lmer(sqrt(SoC) ~ 1 + (1|code), data = all_data)
+summary(soc_null)
+```
+How much variance in SoC Ratings is explained by "Code"?
+```{r h1_lm, echo=FALSE}
+
+fixef(soc_null)**2
+0.02771**2
+
 ```
 
-
 ...
+
 ```{r h1_lm, echo=FALSE}
 
-h1_lm <- lmer(sqrt(SoC) ~ input_noise_magnitude + (1|code), data = trial_data)
+h1_lm <- lmer(sqrt(SoC) ~ input_noise_magnitude + (1|code), data = all_data)
 
 summary(h1_lm)
 
@@ -79,6 +113,10 @@ proportional variance explained by our random effect (participant) code
 
 #Intraclass correlation coefficient
 performance::icc(h1_lm)
+
+#other options of quantifying effect size in our data
+
+
 
 ```
 
@@ -122,10 +160,21 @@ reporting our effect:
 
 ```{r h2_lm, echo=FALSE}
 
-h2_lm <- lmer(sqrt(SoC) ~ feedback + (1|code), data = trial_data)
+h2_lm <- lmer(sqrt(SoC) ~ feedback + (1|code), data = all_data)
 
 summary(h2_lm)
 
+```
+
+```{r h2_r_squared, echo=FALSE}
+
+r_full <- r.squaredGLMM(h2_lm)
+# R2m is variance of fixed effects
+
+r_null <- r.squaredGLMM(soc_null)
+
+fixed_effects_variance <- r_full[1,"R2m"] - r_null[1,"R2m"]
+fixed_effects_variance
 ```
 
 ```{r h2_coefs, echo=FALSE}
@@ -155,7 +204,7 @@ confint(h2_lm, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative')
 ```{r h3_lm, echo=FALSE}
 
 # full model
-h3_lm <- lmer(sqrt(SoC) ~ feedback * input_noise_magnitude + (1|code), data = trial_data)
+h3_lm <- lmer(sqrt(SoC) ~ feedback * input_noise_magnitude + (1|code), data = all_data)
 
 summary(h3_lm)
 
@@ -171,7 +220,7 @@ summary(h3_lm)
 trial_data$feedback <- factor(trial_data$feedback, levels = c("positive", "negative", "neutral"))
 
 # full model
-h3_lm_valence <- lmer(sqrt(SoC) ~ feedback * input_noise_magnitude + (1|code), data = trial_data)
+h3_lm_valence <- lmer(sqrt(SoC) ~ feedback * input_noise_magnitude + (1|code), data = all_data)
 
 summary(h3_lm_valence)
 
@@ -207,7 +256,7 @@ confint(h3_lm, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative',
 Distributional analysis:
 ```{r avg_boxcox, echo=FALSE}
 
-lambda_avg <- boxcox(lm(trial_data$avg_dist_trialwise ~ 1))
+lambda_avg <- boxcox(lm(all_data$avg_dist_trialwise ~ 1))
 
 lambda_avg$x[which(lambda_avg$y == max(lambda_avg$y))]
 
@@ -215,10 +264,17 @@ lambda_avg$x[which(lambda_avg$y == max(lambda_avg$y))]
 
 The expected value, lambda is close to 0, which implies a log transformation.
 
-```{r h3_lm, echo=FALSE}
+### null model
+```{r h4_lm, echo=FALSE}
+dist_null <- lmer(log(avg_dist_trialwise) ~ 1 + (1|code), data = all_data)
+```
+
+
+
+```{r h4_lm, echo=FALSE}
 
 # full model
-h4_lm <- lmer(log(avg_dist_trialwise) ~ input_noise_magnitude + (1|code), data = trial_data)
+h4_lm <- lmer(log(avg_dist_trialwise) ~ input_noise_magnitude + (1|code), data = all_data)
 
 summary(h4_lm)
 
@@ -233,7 +289,6 @@ exp(fixef(h4_lm)[1])
 # slopes:
 exp(fixef(h4_lm)[2])
 # ...
-
 
 ```
 
@@ -252,3 +307,220 @@ confint(h4_lm, nsim=N_iterations, parm=c('input_noise_magnitude2'), method='boot
 
 ```
 
+# H5: Participants experience greater sense of control during more accurate trials (lower line deviations)
+
+```{r h5_lm, echo=FALSE}
+
+# full model
+h5_lm <- lmer(sqrt(SoC) ~ avg_dist_trialwise + (1|code), data = all_data)
+
+summary(h5_lm)
+
+```
+We detect a significant effect of performance on SoC (p<.001).
+
+```{r h5_r_squared, echo=FALSE}
+
+r_full <- r.squaredGLMM(h5_lm)
+# R2m is variance of fixed effects
+
+r_null <- r.squaredGLMM(soc_null)
+
+fixed_effects_variance <- r_full[1,"R2m"] - r_null[1,"R2m"]
+fixed_effects_variance
+```
+
+```{r h5_coefs, echo=FALSE}
+
+#intercept:
+fixef(h5_lm)[1]**2
+# mean SoC across all participants (code) with average line distance = 0
+
+# slope
+fixef(h5_lm)[2]**2
+# mean difference in response across all participants (code) when average line distance increases by one standard deviation
+
+```
+proportional variance explained by our random effect (participant) code
+```{r h5_icc, echo=FALSE}
+
+#Intraclass correlation coefficient
+performance::icc(h5_lm)
+
+```
+
+parametric bootstrap:
+```{r h5_bootstrap, echo=FALSE}
+
+confint(h5_lm, nsim=N_iterations, parm=c('avg_dist_trialwise'), method='boot')
+
+```
+
+bounds of the 95% confidence interval were obtained by a parametric bootstrap with {N_iterations} iterations.
+
+reporting our effect:
+...increasing magnitude of input noise significantly decreases SoC (beta={fixef(h5_lm)[2]**2}, CI=[-0.02, -0.02],  p<.001).
+
+
+# Exploratory Analysis: Do participants improve performance (i.e., reduce avg. distance to the line) throughout block/task progression (in high and low input noise blocks)?
+
+```{r e1_lm, echo=FALSE}
+
+# full model
+# full model
+e1_lm <- lmer(log(avg_dist_trialwise) ~ inpnoise_ascending + (1|code), data = all_data)
+
+summary(e1_lm)
+
+```
+We detect a significant effect of block progression on performance (p<.001).
+
+```{r e1_r_squared, echo=FALSE}
+
+r_full <- r.squaredGLMM(e1_lm)
+# R2m is variance of fixed effects
+
+r_null <- r.squaredGLMM(dist_null)
+
+fixed_effects_variance <- r_full[1,"R2m"] - r_null[1,"R2m"]
+fixed_effects_variance
+```
+
+```{r e1_coefs, echo=FALSE}
+
+#intercept:
+exp(fixef(e1_lm)[1])
+# mean line distance across all participants, independent of block number (?!)
+
+# slopes:
+exp(fixef(e1_lm)[2])
+# mean decrease in line distance across all participants (code) when progressing by one block / one standard deviation?
+
+```
+proportional variance explained by our random effect (participant) code
+```{r e1_icc, echo=FALSE}
+
+#Intraclass correlation coefficient
+performance::icc(e1_lm)
+
+```
+
+parametric bootstrap:
+```{r e1_bootstrap, echo=FALSE}
+
+confint(e1_lm, nsim=N_iterations, parm=c('inpnoise_ascending'), method='boot')
+
+```
+
+bounds of the 95% confidence interval were obtained by a parametric bootstrap with {N_iterations} iterations.
+
+reporting our effect:
+...increasing magnitude of input noise significantly decreases SoC (beta={fixef(h5_lm)[2]**2}, CI=[-0.02, -0.02],  p<.001).
+
+```{r e2_lm, echo=FALSE}
+
+#add an interaction term testing for differences in improvement across noise conditions
+
+e2_lm <- lmer(log(avg_dist_trialwise) ~ inpnoise_ascending * input_noise_magnitude + (1|code), data = all_data)
+
+summary(e2_lm)
+
+```
+
+```{r post-hoc contrasts, echo=FALSE}
+
+#high input noise
+model_high <- lmer(log(avg_dist_trialwise) ~ inpnoise_ascending + (1|code), data = subset(all_data, input_noise_magnitude == "2"))
+summary(model_high)
+
+#low input noise
+model_low <- lmer(log(avg_dist_trialwise) ~ inpnoise_ascending + (1|code), data = subset(all_data, input_noise_magnitude == "0.5"))
+summary(model_low)
+
+```
+The effect of block progression on performance seems to be larger in low compared to high input noise blocks.
+
+# Exploratory Analysis: Are higher depression scores associated with reduced SoC judgments?
+
+```{r e3_lm, echo=FALSE}
+
+# full model - quantitative CESDR variable
+e3_lm <- lmer(sqrt(SoC) ~ CESDR + (1|code), data = all_data)
+
+summary(e3_lm)
+
+# full model - categorical CESDR variable
+e3_cat_lm <- lmer(sqrt(SoC) ~ CESDR_cat + (1|code), data = all_data)
+
+summary(e3_cat_lm)
+
+```
+# Exploratory Analysis: Are ILC scores associated with increased SoC judgments?
+
+```{r e4_lm, echo=FALSE}
+
+# full model
+e4_lm <- lmer(sqrt(SoC) ~ InternalLC * feedback + (1|code), data = all_data)
+
+summary(e4_lm)
+
+```
+# Exploratory Analysis: Are ELC scores associated with reduced SoC judgments?
+
+```{r e5_lm, echo=FALSE}
+
+# full model
+e5_lm <- lmer(sqrt(SoC) ~ ExternalLC * feedback + (1|code), data = all_data)
+
+summary(e5_lm)
+
+```
+External locus of control but not internal locus of control scores or depression scores are associated with SoC scores. Individuals with higher values on the external locus of control scale tend to provide higher SoC ratings. 
+
+
+# Exploratory Analysis: Do feedback, input noise, and questionnaire data interact on soc 
+
+```{r e_further_lm, echo=FALSE}
+
+# full model
+e6_lm <- lmer(sqrt(SoC) ~ ExternalLC * feedback * input_noise_magnitude + (1|code), data = all_data)
+
+summary(e6_lm)
+
+# full model
+e7_lm <- lmer(sqrt(SoC) ~ InternalLC * feedback * input_noise_magnitude + (1|code), data = all_data)
+
+summary(e7_lm)
+
+
+# full model
+e8_lm <- lmer(sqrt(SoC) ~ CESDR * feedback * input_noise_magnitude + (1|code), data = all_data)
+
+summary(e8_lm)
+
+```
+
+The influence of participants' questionnaire scores on SoC Ratings depends on input noise condition.
+Furthermore, the influence of Depression Score on SoC Rating depends on feedback type.
+
+# Follow-up Analysis: Create dummy-coded variable with depression scores >= 16 (depression) and < 16 (no depression)
+
+```{r e_further_lm, echo=FALSE}
+
+# full model
+e6_lm <- lmer(sqrt(SoC) ~ ExternalLC * feedback * input_noise_magnitude + (1|code), data = all_data)
+
+summary(e6_lm)
+
+# full model
+e7_lm <- lmer(sqrt(SoC) ~ InternalLC * feedback * input_noise_magnitude + (1|code), data = all_data)
+
+summary(e7_lm)
+
+
+# full model
+e8_lm <- lmer(sqrt(SoC) ~ CESDR * feedback * input_noise_magnitude + (1|code), data = all_data)
+
+summary(e8_lm)
+
+```
