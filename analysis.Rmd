@@ -32,13 +32,17 @@ N_iterations <- 100
 
 ```{r data, echo=FALSE}
 
+#paths
+trial_data_path <- paste(getwd(), "/data/trialwise_data.csv", sep="")
+questionnaire_data_path <- paste(getwd(), "/data/questionnaire_scores.csv", sep="")
+
 #load data 
-#(Nils)
-#trial_data <- read_csv("data/trialwise_data.csv")
+trial_data <- read_csv(trial_data_path)
+questionnaire_data <- read_csv(questionnaire_data_path)
 
 #Maren
-trial_data <- read.csv("H:/Maren/Experiments/COAF/Main/data/experiment_preprocessed/trialwise_data.csv")
-questionnaire_data <- read.csv("H:/Maren/Experiments/COAF/Main/data/questionnaire_preprocessed/questionnaire_scores.csv")
+#trial_data <- read.csv("H:/Maren/Experiments/COAF/Main/data/experiment_preprocessed/trialwise_data.csv")
+#questionnaire_data <- read.csv("H:/Maren/Experiments/COAF/Main/data/questionnaire_preprocessed/questionnaire_scores.csv")
 
 # factorization
 trial_data$feedback <- factor(trial_data$feedback, levels = c("neutral", "positive", "negative"))
