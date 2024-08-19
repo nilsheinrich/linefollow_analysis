@@ -1,0 +1,300 @@
+---
+title: "model selection"
+author: "Nils Wendel Heinrich"
+date: "2024-08-19"
+output: pdf_document
+---
+
+```{r global, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(sjPlot)
+library(latex2exp)
+library(ggplot2)
+library(fitdistrplus)
+library(simr)
+library(arrow)
+library(MASS)
+library(MuMIn)
+
+set.seed(36)
+N_iterations <- 100
+
+```
+
+
+```{r data, echo=FALSE}
+
+#paths
+trial_data_path <- paste(getwd(), "/data/trialwise_data.csv", sep="")
+questionnaire_data_path <- paste(getwd(), "/data/questionnaire_scores.csv", sep="")
+
+#load data 
+trial_data <- read_csv(trial_data_path)
+questionnaire_data <- read_csv(questionnaire_data_path)
+
+# factorization
+trial_data$feedback <- factor(trial_data$feedback, levels = c("neutral", "positive", "negative"))
+trial_data$input_noise_magnitude <- factor(trial_data$input_noise_magnitude)
+trial_data$code <- factor(trial_data$code) #added as factor variable by Maren
+
+#? also code input_noise_ascending as factor?
+
+```
+
+Create one dataset containing both the experimental data and the questionnaire scores.
+Furthermore, exclude participant 12 and 14 from all statistical analyses.
+```{r create final dataset, echo=FALSE}
+
+#exclude pp 12 and 14 from experimental data
+trial_data <- trial_data %>% filter(code != 12 & code != 14)
+
+#rename "ID" to "code"
+colnames(questionnaire_data)[colnames(questionnaire_data) == "ID"] <- "code"
+all_data <- merge(trial_data, questionnaire_data, by = "code", all.x = TRUE)
+
+#add categorical depression variable with participants scorint >= 16 (critical) scoring 1 and participants scoring < 16 scoring 0
+all_data$CESDR_cat <- ifelse(all_data$CESDR >= 16, 1, 0)
+all_data$CESDR_cat <- as.factor(all_data$CESDR_cat )
+
+```
+
+# Model selection for a linear model predicting SoC
+
+### Distributional analysis:
+```{r h1_boxcox, echo=FALSE}
+
+lambda_soc <- boxcox(lm(all_data$SoC ~ 1))
+
+lambda_soc$x[which(lambda_soc$y == max(lambda_soc$y))]
+
+```
+referring to:
+https://www.statisticshowto.com/probability-and-statistics/normal-distributions/box-cox-transformation/
+
+lambda, the expected value is closer to 0.5 than 1 (1 would be ideal, suggesting no transformation). 0.5 implies a √ transformation, which we will apply. 
+"a boxcox distributional analysis implied a square root transformation of the predicted variable"
+
+
+### null model to explore random intercept effects
+predict mean (independent of any predictors) SoC rating
+```{r h1_lm, echo=FALSE}
+soc_null <- lmer(sqrt(SoC) ~ 1 + (1|block) + (1|inpnoise_ascending), data = all_data)
+summary(soc_null)
+
+# Fixed effects standard deviations:
+
+# code & block & inpnoise_ascending = 0.1185
+
+# code & inpnoise_ascending = singular (means no sufficient amount of variance)
+# code & block = 0.03311
+# block & inpnoise_ascending = 0.1148
+
+# inpnoise_ascending only = singular
+# block only = 0.01855
+# code only = 0.02771
+
+```
+How much variance in SoC Ratings is explained by "Code"?
+```{r h1_lm, echo=FALSE}
+
+fixef(soc_null)**2
+0.1148**2
+
+```
+
+## Exploring fixed effects by likelihood ratio tests
+
+We start with the most complex fixed effects structure (simply throwing all possible fixed effects in the model). Then we will test this model against less complex ones (where we eliminate individual fixed effects).
+```{r most_complex_model, echo=FALSE}
+
+most_complex_model <- lmer(sqrt(SoC) ~ feedback * input_noise_magnitude + ExternalLC + InternalLC + CESDR + (1|block) + (1|inpnoise_ascending), data = all_data, REML = FALSE)
+
+summary(most_complex_model)
+
+```
+We see no significance for CESDR (depression scores) or the interaction term. This gives us a clue of what we should try to eliminate first:
+
+```{r no_CESDR, echo=FALSE}
+
+no_CESDR <- lmer(sqrt(SoC) ~ feedback * input_noise_magnitude + ExternalLC + InternalLC + (1|block) + (1|inpnoise_ascending), data = all_data, REML = FALSE)
+
+summary(no_CESDR)
+
+```
+
+```{r sanity_check, echo=FALSE}
+
+loglik.no_CESDR <- logLik(no_CESDR)
+
+loglik.complex <- logLik(most_complex_model)
+
+# remember to put the less complex model first...
+loglik_teststatistic <- -2 * (loglik.no_CESDR[1] - loglik.complex[1])
+
+# in df we have to state the difference in the degrees of freedom:
+# no_CESDR df = 11
+# most_complex_model df = 12
+# 12 - 11 = 1
+p.value <- pchisq(loglik_teststatistic, df = 1, lower.tail = FALSE)
+
+```
+The p value is way above 0.05. This tells us that we fail to reject the null hypothesis. The models are "similar" meaning that we can use the less complex model and reduce the degrees of freedom (number of parameters).
+
+Now with the package...
+```{r likelihoodratio test1, echo=FALSE}
+
+anova(no_CESDR, most_complex_model)
+
+```
+Checks out, same results! The Pr(>Chisq) is not significant, telling us that the models are not significantly different from another. This means we can use the less complex model (if we reduce the number of parameters by throwing out CESDR, we're not loosing critical predictive power).
+
+Processing with no_CESDR and trying to eliminate the interaction term.
+```{r model with no interaction, echo=FALSE}
+
+no_CESDR_interaction <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + InternalLC + (1|block) + (1|inpnoise_ascending), data = all_data, REML = FALSE)
+
+summary(no_CESDR_interaction)
+
+```
+
+```{r likelihoodratio test2, echo=FALSE}
+
+anova(no_CESDR_interaction, no_CESDR)
+
+```
+Again the test statistic tells us that there is no significant difference. Proceeding with no_CESDR_interaction.
+
+Now every other fixed effects shows significance. And not just on the edge, but decisive significance (6.86e-05 and so on). I wouldn't try to eliminate those other effects, but for the sake of completion, let's try to eliminate InternalLC (the effect with the "worst" p value).
+
+```{r no InternalLC, echo=FALSE}
+
+no_InternalLC <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + (1|block) + (1|inpnoise_ascending), data = all_data, REML = FALSE)
+
+summary(no_InternalLC)
+
+```
+
+```{r likelihoodratio test2, echo=FALSE}
+
+anova(no_InternalLC, no_CESDR_interaction)
+
+```
+Significance! This means that the models are significantly different from another and the no_InternalLC model is lacking something crucial. We will thus stick to no_CESDR_interaction here.
+
+## Exploring random slope effects by referring to BIC
+Now that we identified the fixed effects in our model we can work on the random effects structure. When it comes to selecting random slope effects though, the likelihood ratio test won't be sufficient anymore (not for comparing models with different random effects structures). Random slopes "open up" the fixed effects for the different groups of our random intercept effects: they split the model apart by introducing a lot more parameters. We can select random slope effects by referring to an **information criterion**. I usually use the **Bayes information criterion (BIC)**. It penalizes the number of data points used to fit the model (on top of the number of parameters). I like the idea of accounting for overfitting when selecting models. (An alternative to the BIC is the **Akaike information criterion (AIC)**, which only penalizes the number of parameters.) 
+
+Here we will start with the most complex random effects structure and reduce the complexity further and further until we donÄt detect singularity anymore or the BIC won't go smaller anymore (smaller BICs are preferred).
+
+We will always introduce the same random slopes for both our random intercepts.
+
+Just entering all the fixed effects as random slopes.
+```{r complex_random_effects, echo=FALSE}
+
+complex_random_slopes <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + InternalLC 
+                              + (1 + feedback + input_noise_magnitude + ExternalLC + InternalLC |block) 
+                              + (1 + feedback + input_noise_magnitude + ExternalLC + InternalLC |inpnoise_ascending), 
+                              data = all_data, REML = FALSE)
+
+```
+That took a while and the model is overparameterized (singular)... Knowing the data a little bit, we will start by throwing out InternalLC as random slope.
+
+```{r complex_random_effects, echo=FALSE}
+
+complex_random_slopes <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + InternalLC 
+                              + (1 + feedback + input_noise_magnitude + ExternalLC |block) 
+                              + (1 + feedback + input_noise_magnitude + ExternalLC |inpnoise_ascending), 
+                              data = all_data, REML = FALSE)
+
+```
+Still detecting singularity... Throwing out feedback as well.
+
+```{r complex_random_effects, echo=FALSE}
+
+complex_random_slopes <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + InternalLC 
+                              + (1 + input_noise_magnitude + ExternalLC |block) 
+                              + (1 + input_noise_magnitude + ExternalLC |inpnoise_ascending), 
+                              data = all_data, REML = FALSE)
+
+```
+
+Still singular. Hmmmm maybe we should start keeping only a single random slope effect. Starting with input_noise_magnitude.
+
+```{r input_noise_magnitude, echo=FALSE}
+
+random_slope.in <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + InternalLC 
+                        + (1 + input_noise_magnitude |block) 
+                        + (1 + input_noise_magnitude |inpnoise_ascending), 
+                        data = all_data, REML = FALSE)
+
+```
+
+That one worked. Ok than let's just build single random slope models and compare those.
+
+```{r random_slope.feedback, echo=FALSE}
+
+random_slope.feedback <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + InternalLC 
+                              + (1 + feedback |block)
+                              + (1 + feedback |inpnoise_ascending),
+                              data = all_data, REML = FALSE)
+
+```
+
+Nope that one is overparameterized again...
+
+```{r random_slope.ExternalLC, echo=FALSE}
+
+random_slope.ExternalLC <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + InternalLC
+                                + (1 + ExternalLC |block)
+                                + (1 + ExternalLC |inpnoise_ascending),
+                                data = all_data, REML = FALSE)
+
+```
+That one also...
+
+```{r random_slope.InternalLC, echo=FALSE}
+
+random_slope.InternalLC <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + InternalLC
+                                + (1 + InternalLC |block)
+                                + (1 + InternalLC |inpnoise_ascending),
+                                data = all_data, REML = FALSE)
+
+```
+
+Now let's compare the models that worked and the random intercept only model.
+
+```{r model_comparison, echo=FALSE}
+
+anova(no_CESDR_interaction, random_slope.in, random_slope.InternalLC)
+
+```
+The only statistic of interest for us in this output is the BIC and we're searching for the smallest BIC. random_slope.in (input_noise_magnitude as random slope effect) has the lowest BIC even outcompeting the random intercept only model. We will therefore select random_slope.in as our final model and now we can take a look at the effects.
+
+```{r final selected model, echo=FALSE}
+
+summary(random_slope.in)
+
+```
+
+## Generaring simulations based on the final selected model
+
+parametric bootstrap:
+```{r bootstrap, echo=FALSE}
+
+confint(random_slope.in, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative', 'input_noise_magnitude2', 'ExternalLC', 'InternalLC'), method='boot')
+
+```
+
+bounds of the 95% confidence interval were obtained by a parametric bootstrap with {N_iterations} iterations.
+
+reporting our effect:
+...increasing magnitude of input noise significantly decreases SoC (beta={fixef(random_slope.in)[4]**2}, CI=[-0.81420615, -0.18902123],  p<.001).
+
