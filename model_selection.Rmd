@@ -66,7 +66,7 @@ all_data$CESDR_cat <- as.factor(all_data$CESDR_cat )
 
 ```
 
-# Model selection for a linear model predicting performance
+# Model selection for a linear model predicting performance (average distance to line throughout trial)
 
 ### Distributional analysis:
 ```{r performance_boxcox, echo=FALSE}
@@ -91,7 +91,7 @@ summary(performance_null)
 
 ```
 
-How much variance in performance is explained by the individual random intercept effect code?
+How much variance in performance is explained by the individual random intercept effect *code*?
 ```{r performance.r^2, echo=FALSE}
 
 # marginal R^2 loaded on code
@@ -294,7 +294,7 @@ anova(model2.1, model2.complex)
 ```
 Checks out, same results! The Pr(>Chisq) is not significant, telling us that the models are not significantly different from another. This means we can use the less complex model (if we reduce the number of parameters by throwing out the interaction term, we're not loosing critical predictive power).
 
-Processing with model2.1 and trying to eliminate further interaction terms. Here we try to eliminate the interaction between feedback and InternalLC. It also had no significance whatsoever above.
+Proceeding with model2.1 and trying to eliminate further interaction terms. Here we try to eliminate the interaction between feedback and InternalLC. It also had no significance whatsoever above.
 ```{r model2.2, echo=FALSE}
 
 model2.2 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + InternalLC + CESDR + block + avg_dist_trialwise
@@ -359,7 +359,7 @@ Yep we can safely kick InternalLC. Proceeding with model2.4.
 
 Now it get's a little more tricky. We find no significance for the main effects of CESDR and also no significance for one of its interaction effects. But the other interaction effect is significant... Is it safe to eliminate the whole interaction term or the main effect? We'll see.
 
-Eliminating interaction term:
+Eliminating the complete interaction term:
 ```{r model2.5, echo=FALSE}
 
 model2.5 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise
@@ -414,7 +414,7 @@ anova(model2.6, model2.4)
 ```
 We can safely proceed with model2.6.
 
-The is no significant main effect of CESDR, but it is involved in a significant interaction effect and it's a numeric variable. We will just leave the effect in the model. This is now our final fixed effects structure. Now we can start to explore random effects structure.
+The is no significant main effect of CESDR, but it is involved in a significant interaction effect and it's a numeric variable. We will just leave the effect in the model. This is our final fixed effects structure. Now we can start to explore random effects structure.
 
 ## Exploring random slope effects by referring to BIC
 Now that we identified the fixed effects in our model we can work on the random effects structure. When it comes to selecting random slope effects though, the likelihood ratio test won't be sufficient anymore (not for comparing models with different random effects structures). Random slopes "open up" the fixed effects for the different groups of our random intercept effects: they split the model apart by introducing a lot more parameters. We can select random slope effects by referring to an **information criterion**. I usually use the **Bayes information criterion (BIC)**. It penalizes the number of data points used to fit the model (on top of the number of parameters). I like the idea of accounting for overfitting when selecting models. (An alternative to the BIC is the **Akaike information criterion (AIC)**, which only penalizes the number of parameters.) 
@@ -537,7 +537,7 @@ model2.avg_dist_trialwise <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedb
 
 That one actually failed to converge
 
-Let's compare the nonsingular models and the random intercept only one.
+Let's compare the non-singular models and the random intercept only one.
 ```{r model_comparison, echo=FALSE}
 
 anova(model2.6, model2.in, model2.nfeedback, model2.pfeedback, model2.block)
