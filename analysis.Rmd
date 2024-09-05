@@ -25,7 +25,7 @@ library(MASS)
 library(MuMIn)
 
 set.seed(36)
-N_iterations <- 100
+N_iterations <- 10000
 
 ```
 
@@ -526,5 +526,13 @@ summary(e7_lm)
 e8_lm <- lmer(sqrt(SoC) ~ CESDR * feedback * input_noise_magnitude + (1|code), data = all_data)
 
 summary(e8_lm)
+
+```
+
+# ToDo
+
+```{r ?, echo=FALSE}
+
+# input_noise_ascending
 
 ```

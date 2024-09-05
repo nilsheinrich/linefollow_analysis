@@ -40,7 +40,7 @@ questionnaire_data_path <- paste(getwd(), "/data/questionnaire_scores.csv", sep=
 trial_data <- read_csv(trial_data_path)
 questionnaire_data <- read_csv(questionnaire_data_path)
 
-# factorization
+#factorization
 trial_data$feedback <- factor(trial_data$feedback, levels = c("neutral", "positive", "negative"))
 trial_data$input_noise_magnitude <- factor(trial_data$input_noise_magnitude)
 trial_data$code <- factor(trial_data$code) #added as factor variable by Maren
@@ -188,6 +188,16 @@ summary(model1.in)
 
 ```
 
+### Transform estimates back
+```{r transform, echo=FALSE}
+
+exp(fixef(model1.in)[1]) # intercept
+exp(fixef(model1.in)[2]) # input noise
+exp(abs(fixef(model1.in)[3])) # block
+exp(fixef(model1.in)[4]) # input noise * block
+
+```
+
 And run simulations based on the final selected model...
 
 ## Generaring simulations based on the final selected model
@@ -200,6 +210,8 @@ confint(model1.in, nsim=N_iterations, parm=c('input_noise_magnitude2', 'block', 
 ```
 
 "Increasing input noise magnitude significantly increased the average distance to the line followed throughout a trial (beta={fixef(model1.in)[2]**2}, CI=[0.533456246, 0.63508483],  p<.001).
+
+
 
 
 # Model selection for a linear model predicting SoC
@@ -572,6 +584,22 @@ Nope. Let's take model2.in as our final model as adding further random slopes wi
 ```{r final selected model, echo=FALSE}
 
 summary(model2.in)
+
+```
+
+### Transform estimates back
+```{r transform, echo=FALSE}
+
+fixef(model2.in)[1]**2 # intercept
+fixef(model2.in)[2]**2 # negative_feedback
+fixef(model2.in)[3]**2 # positive_feedback
+fixef(model2.in)[4]**2 # input_noise_magnitude2
+fixef(model2.in)[5]**2 # ExternalLC
+fixef(model2.in)[6]**2 # CESDR
+fixef(model2.in)[7]**2 # block
+fixef(model2.in)[8]**2 # avg_dist_trialwise
+fixef(model2.in)[9]**2 # negative_feedback:CESDR
+fixef(model2.in)[10]**2 # input_noise_magnitude2:block
 
 ```
 
