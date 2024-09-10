@@ -102,7 +102,7 @@ How much variance in performance is explained by the individual random intercept
 ## Exploring fixed effects by likelihood ratio tests
 
 We start with the most complex fixed effects structure (simply throwing fixed effects in the model that are specified by our hypotheses). Then we will test this model against less complex ones (where we eliminate individual fixed effects). For the model that predicts performance that is not overly complex...
-```{r most_complex_model, echo=FALSE}
+```{r most_complex_model1, echo=FALSE}
 
 model1.complex <- lmer(log(avg_dist_trialwise) ~ input_noise_magnitude * block
                       + (1|code),
@@ -123,7 +123,7 @@ summary(model1.1)
 
 ```
 
-```{r likelihoodratio test, echo=FALSE}
+```{r likelihoodratio test1.1, echo=FALSE}
 
 anova(model1.1, model1.complex)
 
@@ -136,7 +136,7 @@ Now that we identified the fixed effects in our model we can work on the random 
 Here we will start with the most complex random effects structure and reduce the complexity further and further until we don't detect singularity anymore or the BIC won't go smaller anymore (smaller BICs are preferred).
 
 Just entering all the fixed effects as random slopes.
-```{r complex_random_effects, echo=FALSE}
+```{r complex_random_effects1, echo=FALSE}
 
 model1.2 <- lmer(log(avg_dist_trialwise) ~ input_noise_magnitude * block
                  + (1 + input_noise_magnitude * block|code),
@@ -173,7 +173,7 @@ model1.bl <- lmer(log(avg_dist_trialwise) ~ input_noise_magnitude * block
 
 Let's compare these with the random intercept only model:
 
-```{r model_comparison, echo=FALSE}
+```{r model_comparison1, echo=FALSE}
 
 anova(model1.complex, model1.in, model1.bl)
 
@@ -188,7 +188,7 @@ summary(model1.in)
 
 ### Transform estimates back
 means:
-```{r transform means, echo=FALSE}
+```{r transform means1, echo=FALSE}
 
 exp(fixef(model1.in)[1]) # intercept
 exp(fixef(model1.in)[2]) # input noise
@@ -197,7 +197,7 @@ exp(fixef(model1.in)[4]) # input noise * block
 
 ```
 standard errors:
-```{r transform sds, echo=FALSE}
+```{r transform sds1, echo=FALSE}
 print("intercept:")
 exp(summary(model1.in)$coefficients[1, "Std. Error"]) # intercept
 
@@ -217,13 +217,13 @@ exp(summary(model1.in)$coefficients[4, "Std. Error"]) # input noise * block
 ## Generaring simulations based on the final selected model
 
 parametric bootstrap:
-```{r bootstrap, echo=FALSE}
+```{r bootstrap1, echo=FALSE}
 
 confint(model1.in, nsim=N_iterations, parm=c('input_noise_magnitude2', 'block', 'input_noise_magnitude2:block'), method='boot')
 
 ```
 
-```{r transform CIs, echo=FALSE}
+```{r transform CIs1, echo=FALSE}
 
 print("input_noise_magnitude2:")
 exp(0.533586052)
@@ -310,7 +310,7 @@ summary(model2.1)
 
 ```
 
-```{r sanity_check, echo=FALSE}
+```{r sanity_check2, echo=FALSE}
 
 loglik.model2.1 <- logLik(model2.1)
 
@@ -329,7 +329,7 @@ p.value <- pchisq(loglik_teststatistic, df = 2, lower.tail = FALSE)
 The p value is way above 0.05. This tells us that we fail to reject the null hypothesis. The models are "similar" meaning that we can use the less complex model and reduce the degrees of freedom (number of parameters).
 
 Now with the package...
-```{r likelihoodratio test, echo=FALSE}
+```{r likelihoodratio test2.1, echo=FALSE}
 
 anova(model2.1, model2.complex)
 
@@ -350,7 +350,7 @@ summary(model2.2)
 
 ```
 
-```{r likelihoodratio test, echo=FALSE}
+```{r likelihoodratio test2.2, echo=FALSE}
 
 anova(model2.2, model2.1)
 
@@ -370,7 +370,7 @@ summary(model2.3)
 
 ```
 
-```{r likelihoodratio test, echo=FALSE}
+```{r likelihoodratio test2.3, echo=FALSE}
 
 anova(model2.3, model2.2)
 
@@ -391,7 +391,7 @@ summary(model2.4)
 
 ```
 
-```{r likelihoodratio test, echo=FALSE}
+```{r likelihoodratio test2.4, echo=FALSE}
 
 anova(model2.4, model2.3)
 
@@ -413,7 +413,7 @@ summary(model2.5)
 
 ```
 
-```{r likelihoodratio test, echo=FALSE}
+```{r likelihoodratio test2.5, echo=FALSE}
 
 anova(model2.5, model2.4)
 
@@ -449,7 +449,7 @@ summary(model2.6)
 
 ```
 
-```{r likelihoodratio test, echo=FALSE}
+```{r likelihoodratio test2.6, echo=FALSE}
 
 anova(model2.6, model2.4)
 
@@ -464,7 +464,7 @@ Now that we identified the fixed effects in our model we can work on the random 
 Here we will start with the most complex random effects structure and reduce the complexity further and further until we don't detect singularity anymore or the BIC won't go smaller anymore (smaller BICs are preferred).
 
 Just entering all the fixed effects as random slopes.
-```{r complex_random_effects, echo=FALSE}
+```{r complex_random_effects2, echo=FALSE}
 
 model2.7 <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
@@ -476,7 +476,7 @@ model2.7 <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise
 That took a while and the model is drastically overparameterized (failed to converge)... We will first eliminate interaction effects.
 
 eliminating negative_feedback*CESDR
-```{r complex_random_effects, echo=FALSE}
+```{r complex_random_effects2.1, echo=FALSE}
 
 model2.8 <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
@@ -488,7 +488,7 @@ model2.8 <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise
 Detecting singularity...
 
 Throwing out input_noise_magnitude*block.
-```{r complex_random_effects, echo=FALSE}
+```{r complex_random_effects2.2, echo=FALSE}
 
 model2.8 <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
@@ -578,7 +578,7 @@ model2.avg_dist_trialwise <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedb
 That one actually failed to converge
 
 Let's compare the non-singular models and the random intercept only one.
-```{r model_comparison, echo=FALSE}
+```{r model_comparison2, echo=FALSE}
 
 anova(model2.6, model2.in, model2.nfeedback, model2.pfeedback, model2.block)
 
@@ -610,7 +610,7 @@ model2.inb <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noi
 
 Nope. Let's take model2.in as our final model as adding further random slopes will only end up in a worse fit. Now we can take our first look at the effects.
 
-```{r final selected model, echo=FALSE}
+```{r final selected model2, echo=FALSE}
 
 summary(model2.in)
 
@@ -619,7 +619,7 @@ summary(model2.in)
 ### Back-transformation
 
 means:
-```{r transform means, echo=FALSE}
+```{r transform means2, echo=FALSE}
 
 fixef(model2.in)[1]**2 # intercept
 fixef(model2.in)[2]**2 # negative_feedback
@@ -635,7 +635,7 @@ fixef(model2.in)[10]**2 # input_noise_magnitude2:block
 ```
 
 standard errors:
-```{r transform sds, echo=FALSE}
+```{r transform sds2, echo=FALSE}
 
 print("intercept:")
 (summary(model2.in)$coefficients[1, "Std. Error"])**2
@@ -672,7 +672,7 @@ print("input_noise_magnitude2*block:")
 ## Generaring simulations based on the final selected model
 
 parametric bootstrap:
-```{r bootstrap, echo=FALSE}
+```{r bootstrap2, echo=FALSE}
 
 confint(model2.in, nsim=N_iterations, parm=c('negative_feedback', 'positive_feedback', 'input_noise_magnitude2', 'ExternalLC', 'CESDR', 'block', 'avg_dist_trialwise', 'negative_feedback:CESDR', 'input_noise_magnitude2:block'), method='boot')
 
@@ -680,7 +680,7 @@ confint(model2.in, nsim=N_iterations, parm=c('negative_feedback', 'positive_feed
 
 "...bounds of the 95% confidence interval were obtained by a parametric bootstrap with {N_iterations} iterations."
 
-```{r transform CIs, echo=FALSE}
+```{r transform CIs2, echo=FALSE}
 
 print("negative_feedback:")
 -(0.099079119)**2
