@@ -135,8 +135,6 @@ Now that we identified the fixed effects in our model we can work on the random 
 
 Here we will start with the most complex random effects structure and reduce the complexity further and further until we don't detect singularity anymore or the BIC won't go smaller anymore (smaller BICs are preferred).
 
-We will always introduce the same random slopes for both our random intercepts.
-
 Just entering all the fixed effects as random slopes.
 ```{r complex_random_effects, echo=FALSE}
 
@@ -180,7 +178,7 @@ Let's compare these with the random intercept only model:
 anova(model1.complex, model1.in, model1.bl)
 
 ```
-model1.in, the model with input noise as random slope effect wins. Now we can take a look at the main effects.
+model1.in, the model with input noise as random slope effect wins (it haas the smallest BIC). Now we can take a look at the main effects.
 
 ```{r model1.summary, echo=FALSE}
 
@@ -189,7 +187,8 @@ summary(model1.in)
 ```
 
 ### Transform estimates back
-```{r transform, echo=FALSE}
+means:
+```{r transform means, echo=FALSE}
 
 exp(fixef(model1.in)[1]) # intercept
 exp(fixef(model1.in)[2]) # input noise
@@ -197,8 +196,23 @@ exp(abs(fixef(model1.in)[3])) # block
 exp(fixef(model1.in)[4]) # input noise * block
 
 ```
+standard errors:
+```{r transform sds, echo=FALSE}
+print("intercept:")
+exp(summary(model1.in)$coefficients[1, "Std. Error"]) # intercept
 
-And run simulations based on the final selected model...
+print("input_noise_magnitude2:")
+exp(summary(model1.in)$coefficients[2, "Std. Error"]) # input noise
+
+print("block:")
+exp(summary(model1.in)$coefficients[3, "Std. Error"]) # block
+
+print("input_noise_magnitude2*block:")
+exp(summary(model1.in)$coefficients[4, "Std. Error"]) # input noise * block
+
+```
+
+...and run simulations based on the final selected model...
 
 ## Generaring simulations based on the final selected model
 
@@ -209,7 +223,23 @@ confint(model1.in, nsim=N_iterations, parm=c('input_noise_magnitude2', 'block', 
 
 ```
 
-"Increasing input noise magnitude significantly increased the average distance to the line followed throughout a trial (beta={fixef(model1.in)[2]**2}, CI=[0.533456246, 0.63508483],  p<.001).
+```{r transform CIs, echo=FALSE}
+
+print("input_noise_magnitude2:")
+exp(0.533586052)
+exp(0.63558477)
+
+print("block:")
+-exp(abs(-0.023676032))
+-exp(abs(-0.01747090))
+
+print("input_noise_magnitude2*block:")
+exp(0.006779193)
+exp(0.01549945)
+
+```
+
+"Compared to input noise magnitude 0.5, input noise magnitude 2.0 significantly increased the average distance to the line followed throughout a trial (beta=1.794, sigma=1.026, CI=[1.705, 1.888],  p<.001)."
 
 
 
@@ -263,7 +293,7 @@ model2.complex <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC
 summary(model2.complex)
 
 ```
-We see no significance for several of the effects. This is where we can start. I will target the interactions first to keep the main effects.
+We see no significance for several of the effects. This is where we can start. I will target the interactions first and try keeping the main effects.
 
 Eliminating the interaction term between feedback and input_noise_magnitude:
 ```{r model2.1, echo=FALSE}
@@ -348,7 +378,7 @@ anova(model2.3, model2.2)
 
 Again no difference between the models, so we can kick the interaction term and don't loose critical predictive power. Proceeding with model2.3.
 
-We will target our first main effect: InternalLC now:
+We will target our first main effect: InternalLC:
 ```{r model2.4, echo=FALSE}
 
 model2.4 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
@@ -426,14 +456,12 @@ anova(model2.6, model2.4)
 ```
 We can safely proceed with model2.6.
 
-The is no significant main effect of CESDR, but it is involved in a significant interaction effect and it's a numeric variable. We will just leave the effect in the model. This is our final fixed effects structure. Now we can start to explore random effects structure.
+There is no significant main effect of CESDR, but it is involved in a significant interaction effect and it's a numeric variable. We will just leave the effect in the model. This is our final fixed effects structure. Now we can start to explore random effects structure.
 
 ## Exploring random slope effects by referring to BIC
 Now that we identified the fixed effects in our model we can work on the random effects structure. When it comes to selecting random slope effects though, the likelihood ratio test won't be sufficient anymore (not for comparing models with different random effects structures). Random slopes "open up" the fixed effects for the different groups of our random intercept effects: they split the model apart by introducing a lot more parameters. We can select random slope effects by referring to an **information criterion**. I usually use the **Bayes information criterion (BIC)**. It penalizes the number of data points used to fit the model (on top of the number of parameters). I like the idea of accounting for overfitting when selecting models. (An alternative to the BIC is the **Akaike information criterion (AIC)**, which only penalizes the number of parameters.) 
 
 Here we will start with the most complex random effects structure and reduce the complexity further and further until we don't detect singularity anymore or the BIC won't go smaller anymore (smaller BICs are preferred).
-
-We will always introduce the same random slopes for both our random intercepts.
 
 Just entering all the fixed effects as random slopes.
 ```{r complex_random_effects, echo=FALSE}
@@ -445,7 +473,7 @@ model2.7 <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise
                 data = all_data, REML = FALSE)
 
 ```
-That took a while and the model is overparameterized (singular)... We will first eliminate interaction effects.
+That took a while and the model is drastically overparameterized (failed to converge)... We will first eliminate interaction effects.
 
 eliminating negative_feedback*CESDR
 ```{r complex_random_effects, echo=FALSE}
@@ -457,7 +485,7 @@ model2.8 <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise
                 data = all_data, REML = FALSE)
 
 ```
-Still detecting singularity...
+Detecting singularity...
 
 Throwing out input_noise_magnitude*block.
 ```{r complex_random_effects, echo=FALSE}
@@ -569,6 +597,7 @@ model2.inb <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noi
 ```
 
 Failed to converge again. Maybe without the interaction and just main effects?
+
 ```{r random_slope.input_noise+block, echo=FALSE}
 
 model2.inb <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
@@ -587,8 +616,10 @@ summary(model2.in)
 
 ```
 
-### Transform estimates back
-```{r transform, echo=FALSE}
+### Back-transformation
+
+means:
+```{r transform means, echo=FALSE}
 
 fixef(model2.in)[1]**2 # intercept
 fixef(model2.in)[2]**2 # negative_feedback
@@ -603,6 +634,41 @@ fixef(model2.in)[10]**2 # input_noise_magnitude2:block
 
 ```
 
+standard errors:
+```{r transform sds, echo=FALSE}
+
+print("intercept:")
+(summary(model2.in)$coefficients[1, "Std. Error"])**2
+
+print("negative_feedback:")
+(summary(model2.in)$coefficients[2, "Std. Error"])**2
+
+print("positive_feedback:")
+(summary(model2.in)$coefficients[3, "Std. Error"])**2
+
+print("input_noise_magnitude2:")
+(summary(model2.in)$coefficients[4, "Std. Error"])**2
+
+print("ExternalLC:")
+(summary(model2.in)$coefficients[5, "Std. Error"])**2
+
+print("CESDR:")
+(summary(model2.in)$coefficients[6, "Std. Error"])**2
+
+print("block:")
+(summary(model2.in)$coefficients[7, "Std. Error"])**2
+
+print("avg_dist_trialwise:")
+(summary(model2.in)$coefficients[8, "Std. Error"])**2
+
+print("negative_feedback*CESDR:")
+(summary(model2.in)$coefficients[9, "Std. Error"])**2
+
+print("input_noise_magnitude2*block:")
+(summary(model2.in)$coefficients[10, "Std. Error"])**2
+
+```
+
 ## Generaring simulations based on the final selected model
 
 parametric bootstrap:
@@ -612,8 +678,48 @@ confint(model2.in, nsim=N_iterations, parm=c('negative_feedback', 'positive_feed
 
 ```
 
-bounds of the 95% confidence interval were obtained by a parametric bootstrap with {N_iterations} iterations.
+"...bounds of the 95% confidence interval were obtained by a parametric bootstrap with {N_iterations} iterations."
+
+```{r transform CIs, echo=FALSE}
+
+print("negative_feedback:")
+-(0.099079119)**2
+-(0.064289019)**2
+
+print("positive_feedback:")
+(0.025204015)**2
+(0.047975512)**2
+
+print("input_noise_magnitude2:")
+-(0.371335049)**2
+-(0.193213762)**2
+
+print("ExternalLC:")
+(0.041552809)**2
+(0.164827711)**2
+
+print("CESDR:")
+-(0.005585758)**2
+(0.004406567)**2
+
+print("block:")
+(0.003797198)**2
+(0.010063422)**2
+
+print("avg_dist_trialwise:")
+-(0.009427785)**2
+-(0.008545179)**2
+
+print("negative_feedback*CESDR:")
+(0.001079844)**2
+(0.003229721)**2
+
+print("input_noise_magnitude2*block:")
+-(0.023712643)**2
+-(0.014914305)**2
+
+```
 
 reporting our effect:
-...increasing magnitude of input noise significantly decreases SoC (beta={fixef(model2.in)[4]**2}, CI=[-0.364380024, -0.198967385],  p<.001).
+...compared to input noise magnitude=0.5, increasing the magnitude of input noise to 2.0 significantly decreases SoC (beta=0.080, sigma=0.002, CI=[-0.138, -0.037],  p<.001).
 
