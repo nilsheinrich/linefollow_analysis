@@ -257,7 +257,7 @@ lambda_soc$x[which(lambda_soc$y == max(lambda_soc$y))]
 referring to:
 https://www.statisticshowto.com/probability-and-statistics/normal-distributions/box-cox-transformation/
 
-lambda, the expected value is closer to 0.5 than 1 (1 would be ideal, suggesting no transformation). 0.5 implies a √ transformation, which we will apply. 
+lambda, the expected value is closer to 0.5 than 1 (1 would be ideal, suggesting no transformation). 0.5 implies a square root transformation, which we will apply. 
 "a boxcox distributional analysis implied a square root transformation of the predicted variable"
 
 
