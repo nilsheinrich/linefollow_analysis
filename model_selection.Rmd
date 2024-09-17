@@ -86,16 +86,24 @@ lambda, the expected value is close to 0.0, implying a log transformation.
 predict mean (independent of any predictors) performance rating
 ```{r performance_lm, echo=FALSE}
 
-performance_null <- lmer(log(avg_dist_trialwise) ~ 1 + (1|code), data = all_data)
+performance_null <- lmer(log(avg_dist_trialwise) ~ 1 + (1|code), data = all_data, REML=FALSE)
 summary(performance_null)
 
 ```
 
-How much variance in performance is explained by the individual random intercept effect *code*?
+```{r exp transform estimates, echo=FALSE}
+
+print(sprintf("estimate: %.2f", exp(3.48315)))
+print(sprintf("Std. Error: %.2f", exp(0.02475)))
+
+```
+
+How much variance in performance (in %) is explained by the individual random intercept effect *code*?
 ```{r performance.r^2, echo=FALSE}
 
-# marginal R^2 loaded on code
-0.02931**2
+# marginal R^2 for code
+var.code <- 0.02931 / (0.17450 + 0.02931)
+var.code
 
 ```
 
@@ -131,7 +139,7 @@ anova(model1.1, model1.complex)
 We detect significance. That means that if we were to eliminate the interaction term, we would take out something crucial that reduces predictive power of our model. We will thus stick to model1.complex.
 
 ## Exploring random slope effects by referring to BIC
-Now that we identified the fixed effects in our model we can work on the random effects structure. When it comes to selecting random slope effects though, the likelihood ratio test won't be sufficient anymore (not for comparing models with different random effects structures). Random slopes "open up" the fixed effects for the different groups of our random intercept effects: they split the model apart by introducing a lot more parameters. We can select random slope effects by referring to an **information criterion**. I usually use the **Bayes information criterion (BIC)**. It penalizes the number of data points used to fit the model (on top of the number of parameters). I like the idea of accounting for overfitting when selecting models. (An alternative to the BIC is the **Akaike information criterion (AIC)**, which only penalizes the number of parameters.) 
+Now that we identified the fixed effects in our model we can work on the random effects structure. When it comes to selecting random slope effects though, the likelihood ratio test won't be sufficient anymore (not for comparing models with different random effects structures). Random slopes "open up" the fixed effects for the different groups of our random intercept effects: they split the model apart by introducing a lot more parameters. We can select random slope effects by referring to an **information criterion**. I usually use the **Bayes information criterion (BIC)**. It penalizes the number of data points used to fit the model (on top of the number of parameters). I like the idea of accounting for overfitting when selecting models. (An alternative to the BIC is the **Akaike information criterion (AIC)**, which only penalizes the number of parameters.)
 
 Here we will start with the most complex random effects structure and reduce the complexity further and further until we don't detect singularity anymore or the BIC won't go smaller anymore (smaller BICs are preferred).
 
@@ -268,11 +276,20 @@ soc_null <- lmer(sqrt(SoC) ~ 1 + (1|code), data = all_data)
 summary(soc_null)
 
 ```
-How much variance in SoC Ratings is explained by the individual random intercept effects?
+
+What is the mean and std of SoC given our null model?
+```{r square transform estimates, echo=FALSE}
+
+print(sprintf("estimate: %.2f", 1.93698**2))
+print(sprintf("Std. Error: %.2f", 0.02771**2))
+
+```
+
+How much variance in SoC Ratings is explained solely by the random intercept effect code?
 ```{r soc.r^2, echo=FALSE}
 
 # marginal R^2 loaded on code
-0.03609**2
+0.03609 / (0.03609+0.18223)
 
 ```
 
@@ -436,10 +453,10 @@ all_data <- all_data %>%
 
 ```
 
-Now we put the individual columns in the model but leave out the interaction between positive_feedback and CESDR:
+Keeping the main effect for feedback, now we put the individual columns in the interaction terms of the model but leave out the interaction between positive_feedback and CESDR:
 ```{r model2.6, echo=FALSE}
 
-model2.6 <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
+model2.6 <- lmer(sqrt(SoC) ~  feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
                 + input_noise_magnitude*block
                 + (1|code),
@@ -466,10 +483,10 @@ Here we will start with the most complex random effects structure and reduce the
 Just entering all the fixed effects as random slopes.
 ```{r complex_random_effects2, echo=FALSE}
 
-model2.7 <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
+model2.7 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
                 + input_noise_magnitude*block
-                + (1 + negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise +     negative_feedback*CESDR + input_noise_magnitude*block|code),
+                + (1 + feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise +     negative_feedback*CESDR + input_noise_magnitude*block|code),
                 data = all_data, REML = FALSE)
 
 ```
@@ -478,10 +495,10 @@ That took a while and the model is drastically overparameterized (failed to conv
 eliminating negative_feedback*CESDR
 ```{r complex_random_effects2.1, echo=FALSE}
 
-model2.8 <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
+model2.8 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
                 + input_noise_magnitude*block
-                + (1 + negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise + input_noise_magnitude*block|code),
+                + (1 + feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise + input_noise_magnitude*block|code),
                 data = all_data, REML = FALSE)
 
 ```
@@ -490,10 +507,10 @@ Detecting singularity...
 Throwing out input_noise_magnitude*block.
 ```{r complex_random_effects2.2, echo=FALSE}
 
-model2.8 <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
+model2.8 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
                 + input_noise_magnitude*block
-                + (1 + negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise|code),
+                + (1 + feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise|code),
                 data = all_data, REML = FALSE)
 
 ```
@@ -502,7 +519,7 @@ Still singular. Hmmmm maybe we should start keeping only a single random slope e
 
 ```{r random_slope.input_noise, echo=FALSE}
 
-model2.in <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
+model2.in <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
                 + input_noise_magnitude*block
                 + (1 + input_noise_magnitude|code),
@@ -514,7 +531,7 @@ That one worked. Ok than let's just build single random slope models and compare
 
 ```{r random_slope.nfeedback, echo=FALSE}
 
-model2.nfeedback <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
+model2.nfeedback <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
                 + input_noise_magnitude*block
                 + (1 + negative_feedback|code),
@@ -522,19 +539,19 @@ model2.nfeedback <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + inp
 
 ```
 
-```{r random_slope.pfeedback, echo=FALSE}
+```{r random_slope.feedback, echo=FALSE}
 
-model2.pfeedback <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
+model2.feedback <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
                 + input_noise_magnitude*block
-                + (1 + positive_feedback|code),
+                + (1 + feedback|code),
                 data = all_data, REML = FALSE)
 
 ```
 
 ```{r random_slope.ExternalLC, echo=FALSE}
 
-model2.ExternalLC <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
+model2.ExternalLC <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
                 + input_noise_magnitude*block
                 + (1 + ExternalLC|code),
@@ -545,7 +562,7 @@ That one is singular. We will omit it in the model comparison.
 
 ```{r random_slope.CESDR, echo=FALSE}
 
-model2.CESDR <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
+model2.CESDR <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
                 + input_noise_magnitude*block
                 + (1 + CESDR|code),
@@ -557,7 +574,7 @@ Also singular.
 
 ```{r random_slope.block, echo=FALSE}
 
-model2.block <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
+model2.block <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
                 + input_noise_magnitude*block
                 + (1 + block|code),
@@ -567,7 +584,7 @@ model2.block <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_n
 
 ```{r random_slope.avg_dist_trialwise, echo=FALSE}
 
-model2.avg_dist_trialwise <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
+model2.avg_dist_trialwise <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise
                 + negative_feedback*CESDR
                 + input_noise_magnitude*block
                 + (1 + avg_dist_trialwise|code),
@@ -580,7 +597,7 @@ That one actually failed to converge
 Let's compare the non-singular models and the random intercept only one.
 ```{r model_comparison2, echo=FALSE}
 
-anova(model2.6, model2.in, model2.nfeedback, model2.pfeedback, model2.block)
+anova(model2.6, model2.in, model2.nfeedback, model2.feedback, model2.block)
 
 ```
 The only statistic of interest for us in this output is the BIC and we're searching for the smallest BIC. model2.in (input_noise_magnitude as random slope effect) has the lowest BIC even outcompeting the random intercept only model.
@@ -588,7 +605,7 @@ The only statistic of interest for us in this output is the BIC and we're search
 We can try to add additional random slope effects now. Starting with the interaction: input_noise_magnitude*block
 ```{r random_slope.input_noise*block, echo=FALSE}
 
-model2.inb <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
+model2.inb <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
                 + input_noise_magnitude*block
                 + (1 + input_noise_magnitude*block|code),
@@ -600,7 +617,7 @@ Failed to converge again. Maybe without the interaction and just main effects?
 
 ```{r random_slope.input_noise+block, echo=FALSE}
 
-model2.inb <- lmer(sqrt(SoC) ~ negative_feedback + positive_feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
+model2.inb <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise 
                 + negative_feedback*CESDR
                 + input_noise_magnitude*block
                 + (1 + input_noise_magnitude+block|code),
@@ -674,7 +691,7 @@ print("input_noise_magnitude2*block:")
 parametric bootstrap:
 ```{r bootstrap2, echo=FALSE}
 
-confint(model2.in, nsim=N_iterations, parm=c('negative_feedback', 'positive_feedback', 'input_noise_magnitude2', 'ExternalLC', 'CESDR', 'block', 'avg_dist_trialwise', 'negative_feedback:CESDR', 'input_noise_magnitude2:block'), method='boot')
+confint(model2.in, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative', 'input_noise_magnitude2', 'ExternalLC', 'CESDR', 'block', 'avg_dist_trialwise', 'CESDR:negative_feedback', 'input_noise_magnitude2:block'), method='boot')
 
 ```
 
@@ -682,13 +699,13 @@ confint(model2.in, nsim=N_iterations, parm=c('negative_feedback', 'positive_feed
 
 ```{r transform CIs2, echo=FALSE}
 
-print("negative_feedback:")
--(0.099079119)**2
--(0.064289019)**2
-
 print("positive_feedback:")
 (0.025204015)**2
 (0.047975512)**2
+
+print("negative_feedback:")
+-(0.099079119)**2
+-(0.064289019)**2
 
 print("input_noise_magnitude2:")
 -(0.371335049)**2
