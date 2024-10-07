@@ -222,7 +222,7 @@ exp(summary(model1.in)$coefficients[4, "Std. Error"]) # input noise * block
 
 ...and run simulations based on the final selected model...
 
-## Generaring simulations based on the final selected model
+## Generating simulations based on the final selected model
 
 parametric bootstrap:
 ```{r bootstrap1, echo=FALSE}
@@ -686,7 +686,7 @@ print("input_noise_magnitude2*block:")
 
 ```
 
-## Generaring simulations based on the final selected model
+## Generating simulations based on the final selected model
 
 parametric bootstrap:
 ```{r bootstrap2, echo=FALSE}
