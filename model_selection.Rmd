@@ -639,8 +639,8 @@ means:
 ```{r transform means2, echo=FALSE}
 
 fixef(model2.in)[1]**2 # intercept
-fixef(model2.in)[2]**2 # negative_feedback
-fixef(model2.in)[3]**2 # positive_feedback
+fixef(model2.in)[2]**2 # positive_feedback
+fixef(model2.in)[3]**2 # negative_feedback
 fixef(model2.in)[4]**2 # input_noise_magnitude2
 fixef(model2.in)[5]**2 # ExternalLC
 fixef(model2.in)[6]**2 # CESDR
@@ -657,10 +657,10 @@ standard errors:
 print("intercept:")
 (summary(model2.in)$coefficients[1, "Std. Error"])**2
 
-print("negative_feedback:")
+print("positive_feedback:")
 (summary(model2.in)$coefficients[2, "Std. Error"])**2
 
-print("positive_feedback:")
+print("negative_feedback:")
 (summary(model2.in)$coefficients[3, "Std. Error"])**2
 
 print("input_noise_magnitude2:")
