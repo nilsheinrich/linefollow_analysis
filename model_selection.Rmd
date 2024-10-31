@@ -740,3 +740,7 @@ print("input_noise_magnitude2*block:")
 reporting our effect:
 ...compared to input noise magnitude=0.5, increasing the magnitude of input noise to 2.0 significantly decreases SoC (beta=0.080, sigma=0.002, CI=[-0.138, -0.037],  p<.001).
 
+```{r arrow_file, echo=FALSE}
+# write to arrow data file
+write_feather(all_data, "data/all_data.arrow")
+```
