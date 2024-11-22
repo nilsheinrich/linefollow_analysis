@@ -748,66 +748,32 @@ write_feather(all_data, "data/all_data.arrow")
 # Post-hoc tests to compare effect sizes
 
 ## negative vs. positive feedback
-```{r neg vs. pos, echo=FALSE}
+```{r negFeedback vs. posFeedback, echo=FALSE}
 
-library(dplyr)
+bootstrap_data <- read_csv("data/bootstrap_data_soc.csv")
 
-negative_feedback.diffs <- all_data %>%
-  group_by(code) %>%  # Group by 'code'
-  mutate(
-    neutral_feedback.mean = mean(SoC[feedback == "neutral"], na.rm = TRUE),  # Compute the mean for neutral feedback within code
-    difference_to_neutral = ifelse(feedback == "negative", SoC - neutral_feedback.mean, NA)  # Compute differences for negative feedback
-  ) %>%
-  filter(feedback == "negative") %>%  # Keep only rows with negative feedback
-  pull(difference_to_neutral)
+# columns of interest
+# ß02: negative feedback
+# ß03: positive feedback
+# ß04: input noise:2.0
 
-# switching signs here, so we get a distribution mainly on the positive side
-negative_feedback.diffs <- -negative_feedback.diffs
+negative_feedback.diffs <- -(bootstrap_data$β02)
+positive_feedback.diffs <- bootstrap_data$β03
 
-positive_feedback.diffs <- all_data %>%
-  group_by(code) %>%  # Group by 'code'
-  mutate(
-    neutral_feedback.mean = mean(SoC[feedback == "neutral"], na.rm = TRUE),  # Compute the mean for neutral feedback within code
-    difference_to_neutral = ifelse(feedback == "positive", SoC - neutral_feedback.mean, NA)  # Compute differences for positive feedback
-  ) %>%
-  filter(feedback == "positive") %>%  # Keep only rows with positive feedback
-  pull(difference_to_neutral)
-
-
-t.test(negative_feedback.diffs, positive_feedback.diffs, alternative = "greater") # we're testing whether the distribution of negative_feedback.diffs is greater than  positive_feedback.diffs
+t.test(negative_feedback.diffs, positive_feedback.diffs, alternative = "greater", paired=TRUE)
+# we're testing whether the distribution of negative_feedback.diffs is greater than  positive_feedback.diffs
 
 ```
-negative_feedback.diffs as differences to the mean of neutral feedback values with signs switched, are significantly greater than positive_feedback.diffs!
 
 ## input noise vs. negative feedback
 ```{r inputNoise vs. negFeedback, echo=FALSE}
 
-input_noise.diffs <- all_data %>%
-  group_by(code) %>%  # Group by 'code'
-  mutate(
-    smallIN.mean = mean(SoC[input_noise_magnitude == 0.5], na.rm = TRUE),  # Compute the mean for input noise=0.5 within code
-    difference_to_smallIN = ifelse(input_noise_magnitude == 2.0, SoC - smallIN.mean, NA)  # Compute differences for input noise=2.0
-  ) %>%
-  filter(input_noise_magnitude == 2.0) %>%  # Keep only rows with high input noise
-  pull(difference_to_smallIN)
+input_noise.diffs <- bootstrap_data$β04
+negative_feedback.diffs <- bootstrap_data$β02
 
-# we don't need switching signs here
-negative_feedback.diffs <- all_data %>%
-  group_by(code) %>%  # Group by 'code'
-  mutate(
-    neutral_feedback.mean = mean(SoC[feedback == "neutral"], na.rm = TRUE),  # Compute the mean for neutral feedback within code
-    difference_to_neutral = ifelse(feedback == "negative", SoC - neutral_feedback.mean, NA)  # Compute differences for negative feedback
-  ) %>%
-  filter(feedback == "negative") %>%  # Keep only rows with negative feedback
-  pull(difference_to_neutral)
-
-
-t.test(input_noise.diffs, negative_feedback.diffs, alternative = "less") # we're testing whether the distribution of input_noise.diffs is smaller than  negative_feedback.diffs
+t.test(input_noise.diffs, negative_feedback.diffs, alternative = "less", paired=TRUE)
+# we're testing whether the distribution of input_noise.diffs is smaller than  negative_feedback.diffs
 
 ```
-
-
-
-
 
 
