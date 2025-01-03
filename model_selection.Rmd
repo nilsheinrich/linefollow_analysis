@@ -66,6 +66,8 @@ all_data$CESDR_cat <- as.factor(all_data$CESDR_cat )
 
 ```
 
+
+
 # Model selection for a linear model predicting performance (average distance to line throughout trial)
 
 ### Distributional analysis:
@@ -248,8 +250,6 @@ exp(0.01549945)
 ```
 
 "Compared to input noise magnitude 0.5, input noise magnitude 2.0 significantly increased the average distance to the line followed throughout a trial (beta=1.794, sigma=1.026, CI=[1.705, 1.888],  p<.001)."
-
-
 
 
 # Model selection for a linear model predicting SoC
