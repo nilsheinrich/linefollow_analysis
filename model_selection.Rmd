@@ -227,9 +227,9 @@ exp(summary(model1.in)$coefficients[4, "Std. Error"]) # input noise * block
 ## Generating simulations based on the final selected model
 
 parametric bootstrap:
-```{r bootstrap1, echo=FALSE}
+```{r bootstrap1, include=FALSE}
 
-confint(model1.in, nsim=N_iterations, parm=c('input_noise_magnitude2', 'block', 'input_noise_magnitude2:block'), method='boot')
+#confint(model1.in, nsim=N_iterations, parm=c('input_noise_magnitude2', 'block', 'input_noise_magnitude2:block'), method='boot')
 
 ```
 
@@ -640,14 +640,14 @@ means:
 
 fixef(model2.in)[1]**2 # intercept
 fixef(model2.in)[2]**2 # positive_feedback
-fixef(model2.in)[3]**2 # negative_feedback
-fixef(model2.in)[4]**2 # input_noise_magnitude2
+-fixef(model2.in)[3]**2 # negative_feedback
+-fixef(model2.in)[4]**2 # input_noise_magnitude2
 fixef(model2.in)[5]**2 # ExternalLC
-fixef(model2.in)[6]**2 # CESDR
+-fixef(model2.in)[6]**2 # CESDR
 fixef(model2.in)[7]**2 # block
-fixef(model2.in)[8]**2 # avg_dist_trialwise
+-fixef(model2.in)[8]**2 # avg_dist_trialwise
 fixef(model2.in)[9]**2 # negative_feedback:CESDR
-fixef(model2.in)[10]**2 # input_noise_magnitude2:block
+-fixef(model2.in)[10]**2 # input_noise_magnitude2:block
 
 ```
 
@@ -689,9 +689,9 @@ print("input_noise_magnitude2*block:")
 ## Generating simulations based on the final selected model
 
 parametric bootstrap:
-```{r bootstrap2, echo=FALSE}
+```{r bootstrap2, include=FALSE}
 
-confint(model2.in, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative', 'input_noise_magnitude2', 'ExternalLC', 'CESDR', 'block', 'avg_dist_trialwise', 'CESDR:negative_feedback', 'input_noise_magnitude2:block'), method='boot')
+#confint(model2.in, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative', 'input_noise_magnitude2', 'ExternalLC', 'CESDR', 'block', 'avg_dist_trialwise', 'CESDR:negative_feedback', 'input_noise_magnitude2:block'), method='boot')
 
 ```
 
@@ -738,9 +738,9 @@ print("input_noise_magnitude2*block:")
 ```
 
 reporting our effect:
-...compared to input noise magnitude=0.5, increasing the magnitude of input noise to 2.0 significantly decreases SoC (beta=0.080, sigma=0.002, CI=[-0.138, -0.037],  p<.001).
+...compared to input noise magnitude=0.5, increasing the magnitude of input noise to 2.0 significantly decreases SoC (beta=-0.080, sigma=0.002, CI=[-0.138, -0.037],  p<.001).
 
-```{r arrow_file, echo=FALSE}
+```{r arrow_file, include=FALSE}
 # write to arrow data file
 write_feather(all_data, "data/all_data.arrow")
 ```
@@ -748,7 +748,7 @@ write_feather(all_data, "data/all_data.arrow")
 # Post-hoc tests to compare effect sizes
 
 ## negative vs. positive feedback
-```{r negFeedback vs. posFeedback, echo=FALSE}
+```{r negFeedback vs. posFeedback, include=FALSE}
 
 bootstrap_data <- read_csv("data/bootstrap_data_soc.csv")
 
@@ -766,7 +766,7 @@ t.test(negative_feedback.diffs, positive_feedback.diffs, alternative = "greater"
 ```
 
 ## input noise vs. negative feedback
-```{r inputNoise vs. negFeedback, echo=FALSE}
+```{r inputNoise vs. negFeedback, include=FALSE}
 
 input_noise.diffs <- bootstrap_data$β04
 negative_feedback.diffs <- bootstrap_data$β02
