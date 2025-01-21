@@ -775,5 +775,3 @@ t.test(input_noise.diffs, negative_feedback.diffs, alternative = "less", paired=
 # we're testing whether the distribution of input_noise.diffs is smaller than  negative_feedback.diffs
 
 ```
-
-
