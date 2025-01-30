@@ -760,7 +760,7 @@ bootstrap_data <- read_csv("data/bootstrap_data_soc.csv")
 negative_feedback.diffs <- -(bootstrap_data$β02)
 positive_feedback.diffs <- bootstrap_data$β03
 
-t.test(negative_feedback.diffs, positive_feedback.diffs, alternative = "greater", paired=TRUE)
+t.test(negative_feedback.diffs, positive_feedback.diffs, alternative = "two.sided", paired=TRUE)
 # we're testing whether the distribution of negative_feedback.diffs is greater than  positive_feedback.diffs
 
 ```
@@ -771,7 +771,7 @@ t.test(negative_feedback.diffs, positive_feedback.diffs, alternative = "greater"
 input_noise.diffs <- bootstrap_data$β04
 negative_feedback.diffs <- bootstrap_data$β02
 
-t.test(input_noise.diffs, negative_feedback.diffs, alternative = "less", paired=TRUE)
+t.test(input_noise.diffs, negative_feedback.diffs, alternative = "two.sided", paired=TRUE)
 # we're testing whether the distribution of input_noise.diffs is smaller than  negative_feedback.diffs
 
 ```
