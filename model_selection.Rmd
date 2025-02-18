@@ -748,7 +748,7 @@ write_feather(all_data, "data/all_data.arrow")
 # Post-hoc tests to compare effect sizes
 
 ## negative vs. positive feedback
-```{r negFeedback vs. posFeedback, include=FALSE}
+```{r negFeedback vs. posFeedback, include=TRUE}
 
 bootstrap_data <- read_csv("data/bootstrap_data_soc.csv")
 
@@ -766,12 +766,43 @@ t.test(negative_feedback.diffs, positive_feedback.diffs, alternative = "two.side
 ```
 
 ## input noise vs. negative feedback
-```{r inputNoise vs. negFeedback, include=FALSE}
+```{r inputNoise vs. negFeedback, include=TRUE}
 
 input_noise.diffs <- bootstrap_data$β04
 negative_feedback.diffs <- bootstrap_data$β02
 
 t.test(input_noise.diffs, negative_feedback.diffs, alternative = "two.sided", paired=TRUE)
 # we're testing whether the distribution of input_noise.diffs is smaller than  negative_feedback.diffs
+
+```
+
+
+
+# Easy analysis because it doesn't pay out if you put in effort to only report robust effects...
+
+## Performance
+```{r performance_easy, echo=FALSE}
+
+performance_easy <- lmer(avg_dist_trialwise ~ input_noise_magnitude * block + (1|code), data = all_data, REML = FALSE)
+
+summary(performance_easy)
+
+```
+
+## SoC
+I don't think we had an hypothesis for block affecting SoC.
+```{r soc_easy, echo=FALSE}
+
+soc_easy <- lmer(SoC ~ feedback + input_noise_magnitude + ExternalLC + InternalLC + CESDR + avg_dist_trialwise
+                 #+ block
+                 + feedback*input_noise_magnitude
+                 + feedback*ExternalLC
+                 + feedback*InternalLC
+                 #+ feedback*CESDR
+                 #+ #+ input_noise_magnitude*block # these weren't in our hypotheses I think...
+                 + (1|code),
+                 data = all_data, REML = FALSE)
+
+summary(soc_easy)
 
 ```
