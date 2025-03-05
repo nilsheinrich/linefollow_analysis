@@ -1,5 +1,8 @@
 .Rhistory
 .RData
+.ipynb_checkpoints
 **/.DS_Store
 plots/*
+analysis_coaf_MG.Rmd
+analysis.Rmd
 remarks.qmd

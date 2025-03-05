@@ -742,7 +742,7 @@ reporting our effect:
 
 ```{r arrow_file, include=FALSE}
 # write to arrow data file
-write_feather(all_data, "data/all_data.arrow")
+#write_feather(all_data, "data/all_data.arrow")
 ```
 
 # Post-hoc tests to compare effect sizes
@@ -778,7 +778,7 @@ t.test(input_noise.diffs, negative_feedback.diffs, alternative = "two.sided", pa
 
 
 
-# Easy analysis because it doesn't pay out if you put in effort to only report robust effects...
+# Simpler models without transformatio or exploration of random slopes
 
 ## Performance
 ```{r performance_easy, echo=FALSE}
@@ -815,7 +815,7 @@ bootstrap_performance_df <- as.data.frame(bootstrap_performance_results$t)
 colnames(bootstrap_performance_df) <- names(fixef(performance_easy))  # assign variable names
 
 # Save to CSV
-write.csv(bootstrap_performance_df, "bootstrap_performance_results.csv", row.names = FALSE)
+write.csv(bootstrap_performance_df, "data/simple models/bootstrap_performance_results.csv", row.names = FALSE)
 
 ```
 
@@ -865,6 +865,6 @@ bootstrap_soc_df <- as.data.frame(bootstrap_soc_results$t)
 colnames(bootstrap_soc_df) <- names(fixef(soc_easy))  # assign variable names
 
 # Save to CSV
-write.csv(bootstrap_soc_df, "bootstrap_soc_results.csv", row.names = FALSE)
+write.csv(bootstrap_soc_df, "data/simple models/bootstrap_soc_results.csv", row.names = FALSE)
 
 ```
