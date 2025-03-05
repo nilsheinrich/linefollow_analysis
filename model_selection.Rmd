@@ -789,6 +789,37 @@ summary(performance_easy)
 
 ```
 
+```{r bootstrap_performance_bounds, include=TRUE}
+
+#confint(performance_easy, nsim=N_iterations, parm=c('input_noise_magnitude2', 'block', 'input_noise_magnitude2:block'), method='boot')
+
+```
+bounds:
+                                  2.5 %     97.5 %
+input_noise_magnitude2       20.3235842 22.1861712
+block                        -0.6562036 -0.4002673
+input_noise_magnitude2:block -0.1238160  0.2505892
+
+```{r bootstrap_performance, include=TRUE}
+
+bootstrap_performance_results <- bootMer(
+  performance_easy,
+  FUN = function(model) fixef(model),  # Extract fixed effects
+  nsim = 10000,                        # Number of bootstrap samples
+  use.u = FALSE,                       # Refit the model for each sample
+  type = "parametric"                  # Bootstrapping type
+)
+
+# Convert bootstrap estimates to a data frame
+bootstrap_performance_df <- as.data.frame(bootstrap_performance_results$t)
+colnames(bootstrap_performance_df) <- names(fixef(performance_easy))  # assign variable names
+
+# Save to CSV
+write.csv(bootstrap_performance_df, "bootstrap_performance_results.csv", row.names = FALSE)
+
+```
+
+
 ## SoC
 I don't think we had an hypothesis for block affecting SoC.
 ```{r soc_easy, echo=FALSE}
@@ -804,5 +835,36 @@ soc_easy <- lmer(SoC ~ feedback + input_noise_magnitude + ExternalLC + InternalL
                  data = all_data, REML = FALSE)
 
 summary(soc_easy)
+
+```
+
+```{r bootstrap_soc_bounds, include=TRUE}
+
+confint(soc_easy, nsim=N_iterations, parm=c('input_noise_magnitude2', 'ExternalLC', 'avg_dist_trialwise'), method='boot')
+
+```
+
+bounds:
+                             2.5 %      97.5 %
+input_noise_magnitude2 -1.48673732 -1.32083086
+ExternalLC              0.13646153  0.62109887
+avg_dist_trialwise     -0.03710365 -0.03332908
+
+```{r bootstrap_soc, include=TRUE}
+
+bootstrap_soc_results <- bootMer(
+  soc_easy,
+  FUN = function(model) fixef(model),  # Extract fixed effects
+  nsim = 10000,                        # Number of bootstrap samples
+  use.u = FALSE,                       # Refit the model for each sample
+  type = "parametric"                  # Bootstrapping type
+)
+
+# Convert bootstrap estimates to a data frame
+bootstrap_soc_df <- as.data.frame(bootstrap_soc_results$t)
+colnames(bootstrap_soc_df) <- names(fixef(soc_easy))  # assign variable names
+
+# Save to CSV
+write.csv(bootstrap_soc_df, "bootstrap_soc_results.csv", row.names = FALSE)
 
 ```
