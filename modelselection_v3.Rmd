@@ -1,0 +1,992 @@
+---
+title: "Extended_modelselection_v1"
+author: "Maren Giersiepen"
+output: pdf_document
+date: "2025-07-07"
+---
+
+In this script, model selection for predicting participants' sense of control is extended. In this analysis, several additional interactions are included in the most complex model. These were included in response to reviewers comments who were interested in examining these effects. Model selection for predicting participants' performance is not included in this script, as no changes have been made.
+
+```{r global, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(sjPlot)
+library(latex2exp)
+library(ggplot2)
+library(fitdistrplus)
+library(simr)
+library(arrow)
+library(MASS)
+library(MuMIn)
+
+set.seed(36)
+N_iterations <- 10000
+
+```
+
+
+```{r data, echo=FALSE}
+
+#paths
+trial_data_path <- paste("H:/Maren/Experiments/A6/Main/data/experiment_preprocessed/trialwise_data.csv")
+questionnaire_data_path <- paste("H:/Maren/Experiments/A6/Main/data/questionnaire_preprocessed/questionnaire_scores.csv")
+
+#load data
+trial_data <- read_csv(trial_data_path)
+questionnaire_data <- read_csv(questionnaire_data_path)
+
+#factorization
+trial_data$feedback <- factor(trial_data$feedback, levels = c("neutral", "positive", "negative"))
+trial_data$input_noise_magnitude <- factor(trial_data$input_noise_magnitude)
+trial_data$code <- factor(trial_data$code) #added as factor variable by Maren
+trial_data$inpnoise_ascending <- factor(trial_data$inpnoise_ascending)
+trial_data$block <- as.numeric(trial_data$block)
+
+#for linear mixed model analysis, within-and between subject effects may be conflated. To extract BS-effects, use 
+  #a) effects coding on categorical, balanced predictors
+  #b) effects coding and random slopes for cateogrical, unbalanced predictors
+  #c) a decomposition of variables into BS- and WS-fixed factors
+
+#use effects coding for input noise magnitude
+trial_data$input_noise_magnitude_centered <- ifelse(trial_data$input_noise_magnitude == 0.5, -0.5, 0.5)
+
+#decompose participant performance into BS and WS component
+# Compute per-subject mean (BS component)
+trial_data$avg_dist_bs <- ave(trial_data$avg_dist_trialwise, trial_data$code, FUN = mean)
+
+# Compute WS component (trial deviation from subject mean)
+trial_data$avg_dist_ws <- trial_data$avg_dist_trialwise - trial_data$avg_dist_bs
+
+#contrast coding of feedback is sufficient as it is - with neutral as the reference category. Effects coding only necessary when differentiating between simple feedback effects.
+#do not center block variable - this shall start from 1
+
+```
+
+Create one dataset containing both the experimental data and the questionnaire scores.
+Furthermore, exclude participant 12 and 14 from all statistical analyses.
+```{r create final dataset, echo=FALSE}
+
+#exclude pp 12 and 14 from experimental data
+trial_data <- trial_data %>% filter(code != 12 & code != 14)
+
+#rename "ID" to "code"
+colnames(questionnaire_data)[colnames(questionnaire_data) == "ID"] <- "code"
+all_data <- merge(trial_data, questionnaire_data, by = "code", all.x = TRUE)
+
+#add categorical depression variable with participants scorint >= 16 (critical) scoring 1 and participants scoring < 16 scoring 0
+all_data$CESDR_cat <- ifelse(all_data$CESDR >= 16, 1, 0)
+all_data$CESDR_cat <- as.factor(all_data$CESDR_cat )
+
+```
+
+# Model selection for a linear model predicting SoC
+
+### Distributional analysis:
+```{r soc_boxcox, echo=FALSE}
+
+lambda_soc <- boxcox(lm(all_data$SoC ~ 1))
+
+lambda_soc$x[which(lambda_soc$y == max(lambda_soc$y))]
+
+```
+referring to:
+https://www.statisticshowto.com/probability-and-statistics/normal-distributions/box-cox-transformation/
+
+lambda, the expected value is closer to 0.5 than 1 (1 would be ideal, suggesting no transformation). 0.5 implies a square root transformation, which we will apply. 
+"a boxcox distributional analysis implied a square root transformation of the predicted variable"
+
+### null model to explore random intercept effects
+predict mean (independent of any predictors) SoC rating
+```{r soc_lm, echo=FALSE}
+soc_null <- lmer(sqrt(SoC) ~ 1 + (1|code), data = all_data)
+summary(soc_null)
+
+```
+
+What is the mean and std of SoC given our null model?
+```{r square transform estimates, echo=FALSE}
+
+print(sprintf("estimate: %.2f", 1.93698**2))
+print(sprintf("Std. Error: %.2f", 0.02771**2))
+
+```
+
+How much variance in SoC Ratings is explained solely by the random intercept effect code?
+```{r soc.r^2, echo=FALSE}
+
+# marginal R^2 loaded on code
+0.03609 / (0.03609+0.18223)
+
+```
+#All following analyses are adapted according to reviewer suggestions
+## Exploring fixed effects by likelihood ratio tests
+
+We start with the most complex fixed effects structure (simply throwing fixed effects in the model that are specified by our hypotheses). Then we will test this model against less complex ones (where we eliminate individual fixed effects).
+```{r most_complex_model, echo=FALSE}
+
+modelSoC.complex <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + InternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + feedback*block #extension                             
+                              + CESDR*feedback*input_noise_magnitude_centered #extension
+                              + InternalLC*feedback*input_noise_magnitude_centered #extension
+                              + ExternalLC*feedback*input_noise_magnitude_centered #extension
+                              + (1|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.complex)
+
+```
+None of the three-way interactions does reached significance. Exclude it in a next step. 
+
+```{r model 3.1, echo=FALSE}
+
+modelSoC.3.1 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + InternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + InternalLC*input_noise_magnitude_centered
+                              + InternalLC*feedback
+                              + feedback*block #extension                             
+                              + CESDR*feedback*input_noise_magnitude_centered #extension
+                              + ExternalLC*feedback*input_noise_magnitude_centered #extension
+                              + (1|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.1)
+
+```
+Compare model fit of complex versus simplified model:
+
+```{r likelihoodratio test3.1, echo=FALSE}
+
+anova(modelSoC.3.1, modelSoC.complex)
+
+```
+The models are not significantly different. Therefore, continue with model 3.1.
+
+Now, eliminate the three-way interaction of feedback, input noise and CESDR. This interaction is not significant either.
+
+```{r model 3.2, echo=FALSE}
+
+modelSoC.3.2 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + InternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + feedback*block #extension          
+                              + InternalLC*input_noise_magnitude_centered
+                              + InternalLC*feedback
+                              + CESDR*feedback
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*feedback*input_noise_magnitude_centered #extension
+                              + (1|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.2)
+
+```
+
+```{r likelihoodratio test3.2, echo=FALSE}
+
+anova(modelSoC.3.2, modelSoC.3.1)
+
+```
+The models are not significantly different. Therefore, continue with model 3.2.
+
+The interaction of positive feedback, input noise and external LC is siginficant. Test whether excluding this interaction improves model fit or not.
+
+```{r model 3.3, echo=FALSE}
+
+modelSoC.3.3 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + InternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + feedback*input_noise_magnitude_centered
+                              + feedback*block #extension          
+                              + InternalLC*input_noise_magnitude_centered
+                              + InternalLC*feedback
+                              + CESDR*feedback
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*feedback
+                              + ExternalLC*input_noise_magnitude_centered
+                              #+ ExternalLC*feedback*input_noise_magnitude_centered #extension
+                              + (1|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.3)
+
+```
+
+
+```{r likelihoodratio test3.3, echo=FALSE}
+
+anova(modelSoC.3.3, modelSoC.3.2)
+
+```
+The models are not significantly different. We therefore continue with a model only including two-way interactions. Now, lets target non-significant two-way interactions.
+
+Eliminating the interaction term between feedback and input_noise_magnitude:
+```{r model3.4, echo=FALSE}
+
+modelSoC.3.4 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + InternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + feedback*block #extension          
+                              + InternalLC*input_noise_magnitude_centered
+                              + InternalLC*feedback
+                              + CESDR*feedback
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*feedback
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.4)
+```
+
+```{r likelihoodratio test3.4, echo=FALSE}
+
+anova(modelSoC.3.4, modelSoC.3.3)
+
+```
+Checks out, same results! The Pr(>Chisq) is not significant, telling us that the models are not significantly different from another. This means we can use the less complex model (if we reduce the number of parameters by throwing out the interaction term, we're not loosing critical predictive power).
+
+Proceeding with model3.4 and trying to eliminate further interaction terms. Here we try to eliminate the interaction between feedback and InternalLC. It also had no significance whatsoever above.
+```{r model3.5, echo=FALSE}
+
+modelSoC.3.5 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + InternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + feedback*block #extension          
+                              + InternalLC*input_noise_magnitude_centered
+                              + CESDR*feedback
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*feedback
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.5)
+```
+
+```{r likelihoodratio test3.5, echo=FALSE}
+
+anova(modelSoC.3.5, modelSoC.3.4)
+
+```
+Again the test statistic tells us that there is no significant difference. Proceeding with model3.5.
+
+Now we target the interaction between feedback and ExternalLC and try to eliminate this one.
+```{r model3.6, echo=FALSE}
+
+modelSoC.3.6 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + InternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + feedback*block #extension          
+                              + InternalLC*input_noise_magnitude_centered
+                              + CESDR*feedback
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.6)
+```
+
+```{r likelihoodratio test3.6, echo=FALSE}
+
+anova(modelSoC.3.6, modelSoC.3.5)
+
+```
+
+Again no difference between the models, so we can kick the interaction term and don't loose critical predictive power. Proceeding with model3.6.
+
+Lets remove the non-significant interaction of input noise and internal LC now
+```{r model3.7, echo=FALSE}
+
+
+modelSoC.3.7 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + InternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + feedback*block #extension          
+                              + CESDR*feedback
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.7)
+```
+
+```{r likelihoodratio test3.7, echo=FALSE}
+
+anova(modelSoC.3.7, modelSoC.3.6)
+
+```
+We can safely continue with the simpler model, excluding the interactino of input noise and internal LoC.
+
+We will now target our first main effect: InternalLC:
+```{r model3.8, echo=FALSE}
+
+modelSoC.3.8 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + feedback*block #extension          
+                              + CESDR*feedback
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.8)
+
+```
+
+```{r likelihoodratio test3.8, echo=FALSE}
+
+anova(modelSoC.3.8, modelSoC.3.7)
+
+```
+
+Yep we can safely kick InternalLC. Proceeding with model3.8.
+
+Now it get's a little more tricky. We find no significance for the interaction of feedbacknegative:block and feedbackpositive:CESDR. But the other interaction effect is significant... Is it safe to eliminate the whole interaction term or the main effect? We'll see.
+
+Eliminating the complete interaction term of feedback:CESDR
+```{r model3.9, echo=FALSE}
+
+modelSoC.3.9 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + feedback*block #extension          
+                              #+ CESDR*feedback
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.9)
+```
+
+```{r likelihoodratio test3.9, echo=FALSE}
+
+anova(modelSoC.3.9, modelSoC.3.8)
+
+```
+We see significance. This means that the models are significantly different from another in their predictive power and we shouldn't just throw out the interaction term.
+
+What if we try eliminating the feedback:block interaction?
+
+Eliminating the complete interaction term of feedback:CESDR
+```{r model3.9_1, echo=FALSE}
+
+modelSoC.3.9_1 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              #+ feedback*block #extension          
+                              + CESDR*feedback
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.9_1)
+```
+```{r likelihoodratio test3.9_1, echo=FALSE}
+
+anova(modelSoC.3.9_1, modelSoC.3.8)
+
+```
+Again, we see significance. We should therefore not exclude the interaction terms entirely.
+
+But because it's the feedback:positive * CESDR -interaction and the block:negative interaction that is the weak point, we can create columns in our data set that are separate for *negative*  and *positive* feedback.
+
+In consideration of one reviewers comments, we use effects coding [-0.5 0.5] to avoid conflation of between- and within-subjects effects. This approach centers the the feedback-predictor within each participant, on average. It removes BS-differences in average condition usage so the fixed effect estimate reflects within-subject differences. 
+
+```{r individual_feedback columns, echo=FALSE}
+
+#old approach
+#all_data <- all_data %>% 
+#  mutate(negative_feedback=case_when(
+#    feedback=="negative" ~ 1,
+#    feedback=="positive" | feedback=="neutral" ~ 0
+#  ))
+
+#all_data <- all_data %>% 
+#  mutate(positive_feedback=case_when(
+#    feedback=="positive" ~ 1,
+#    feedback=="negative" | feedback=="neutral" ~ 0
+#  ))
+
+#use effect coding to center the effect of feedback within-person
+#For the CESD-R negative-feedback interaction, create a contrast of negative vs. non-negative feedback
+all_data <- all_data %>%
+  mutate(
+    negative_vs_nonneg = case_when(
+      feedback == "negative" ~ -0.5,
+      feedback %in% c("neutral", "positive") ~ 0.5
+    )
+  )
+
+#For the block positive-feedback interaction, create a contrast of positive vs. non-positive feedback
+all_data <- all_data %>%
+  mutate(
+    positive_vs_nonpos = case_when(
+      feedback == "positive" ~ 0.5,
+      feedback %in% c("neutral", "negative") ~ -0.5
+    )
+  )
+
+```
+
+Keeping the main effect for feedback, now we put the individual columns in the interaction terms of the model but leave out the interaction between positive_feedback and CESDR:
+```{r model3.10, echo=FALSE}
+
+modelSoC.3.10 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + feedback*block #extension          
+                              #+ CESDR*feedback
+                              + CESDR*negative_vs_nonneg
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.10)
+
+```
+
+```{r likelihoodratio test3.10, echo=FALSE}
+
+anova(modelSoC.3.10, modelSoC.3.8)
+
+```
+We can safely proceed with model3.10.
+
+Now remove the feedback*block interaction and only include the positive_vs_nonpos and block interaction
+
+```{r model3.11, echo=FALSE}
+
+modelSoC.3.11 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              #+ feedback*block #extension 
+                              + positive_vs_nonpos*block
+                              + CESDR*negative_vs_nonneg
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.11)
+
+```
+```{r likelihoodratio test3.11, echo=FALSE}
+
+anova(modelSoC.3.11, modelSoC.3.10)
+
+```
+No significant difference. We can therefore proceed with model 3.11.
+
+There is no significant main effect of CESDR and block, but they are involved in a significant interaction effect and it's a numeric variable. We will just leave the effect in the model.
+
+This is our final fixed effects structure. How does this model compare to the model from the original analysis?
+
+1. The fixed effects feedback_positive, feedback_negative, input noise, block, avg. distance trialwise (bs, ws), input_noise*block have the same direction as the original effects and remain significant
+2. ! In contrast to the original model, the effect of positive feedback is now (descriptively) larger than the effect of negative feedback
+3. ! In contrast to the original model, the interaction of feedback and depression score is negative rather than positive! => investigate this further!!!
+4. ! The model further features a significant negative interaction of block and positive (vs. non-positive) feedback, indicating that the effect of positive feedback reduces over time. 
+5. ! The model further includes a significant negative interaction of input noise and CESDR, indicating that hte decrease in SoC from low to high input noise is reduced in individuals with igher depression scores, potentially indicating a reduced relianle on sensorimotor cues compared to performane feedback, when experiencing heightened depressive symptoms. 
+6. ! Finally, the model also includes a positive interaction of input noise and external LoC, indicating that the effect of input noise increases with higher depression scores.
+
+Now we can start to explore random effects structure.
+
+## Exploring random slope effects by referring to BIC
+Now that we identified the fixed effects in our model we can work on the random effects structure. When it comes to selecting random slope effects though, the likelihood ratio test won't be sufficient anymore (not for comparing models with different random effects structures). Random slopes "open up" the fixed effects for the different groups of our random intercept effects: they split the model apart by introducing a lot more parameters. We can select random slope effects by referring to an **information criterion**. I usually use the **Bayes information criterion (BIC)**. It penalizes the number of data points used to fit the model (on top of the number of parameters). I like the idea of accounting for overfitting when selecting models. (An alternative to the BIC is the **Akaike information criterion (AIC)**, which only penalizes the number of parameters.) 
+
+Here we will start with the most complex random effects structure and reduce the complexity further and further until we don't detect singularity anymore or the BIC won't go smaller anymore (smaller BICs are preferred).
+
+Just entering all the within-subjects fixed effects as random slopes.
+Adding Between-subject fixed effect random slopes does not make sense, as the scores are constant within participants
+```{r complex_random_effects3.12_1, echo=FALSE}
+
+modelSoC.3.12_1 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + positive_vs_nonpos*block
+                              + CESDR*negative_vs_nonneg
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1 + negative_vs_nonneg + positive_vs_nonpos + feedback + input_noise_magnitude_centered + block + avg_dist_ws + input_noise_magnitude_centered*block + positive_vs_nonpos*block |code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.12_1)
+
+```
+That took a while and the model is drastically overparameterized (failed to converge)... We will first eliminate interaction effects.
+
+eliminating positive_vs_nonpos*block interaction to see whether this simpler model converges.
+```{r complex_random_effects3.12_2, echo=FALSE}
+
+modelSoC.3.12_2 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + positive_vs_nonpos*block
+                              + CESDR*negative_vs_nonneg
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1 + negative_vs_nonneg + positive_vs_nonpos + feedback + input_noise_magnitude_centered + block + avg_dist_ws + input_noise_magnitude_centered*block|code),
+                              data = all_data, REML = FALSE)
+
+summary(modelSoC.3.12_2)
+
+```
+Model again fails to converge.
+
+Throwing out input_noise_magnitude*block.
+```{r complex_random_effects3.12_3, echo=FALSE}
+
+modelSoC.3.12_3 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + positive_vs_nonpos*block
+                              + CESDR*negative_vs_nonneg
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1 + negative_vs_nonneg + positive_vs_nonpos + feedback + input_noise_magnitude_centered + block + avg_dist_ws|code),
+                              data = all_data, REML = FALSE)
+summary(modelSoC.3.12_3)
+
+```
+We detect singularity. This means we need to exclude further random slopes. As we observe a modulation of the WS-effects of feedback and input noise by individual differences, we can assume that random slopes for these effects are meaningful in the model. Lets therefore start excluding WS-effects without a significant WS-BS-interaction. 
+
+Exclude avg_dist_ws random slope effect
+```{r complex_random_effects3.12_4, echo=FALSE}
+
+modelSoC.3.12_4 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + positive_vs_nonpos*block
+                              + CESDR*negative_vs_nonneg
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1 + negative_vs_nonneg + positive_vs_nonpos + feedback + input_noise_magnitude_centered + block|code),
+                              data = all_data, REML = FALSE)
+summary(modelSoC.3.12_4)
+
+```
+Still singular. Lets also exclude the random slope for block.
+
+```{r complex_random_effects3.12_5, echo=FALSE}
+
+modelSoC.3.12_5 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + positive_vs_nonpos*block
+                              + CESDR*negative_vs_nonneg
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1 + negative_vs_nonneg + positive_vs_nonpos + feedback + input_noise_magnitude_centered|code),
+                              data = all_data, REML = FALSE)
+summary(modelSoC.3.12_5)
+
+```
+Model fails to converge. 
+
+Exclude the positive_vs_nonpos random slope - this is part of a WS-interaction only.
+```{r complex_random_effects3.12_6, echo=FALSE}
+
+modelSoC.3.12_6 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + positive_vs_nonpos*block
+                              + CESDR*negative_vs_nonneg
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1 + negative_vs_nonneg + feedback + input_noise_magnitude_centered|code),
+                              data = all_data, REML = FALSE)
+summary(modelSoC.3.12_6)
+
+```
+Model fails to converge. Exclude the random slope of feedback
+
+```{r complex_random_effects3.12_7, echo=FALSE}
+
+modelSoC.3.12_7 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + positive_vs_nonpos*block
+                              + CESDR*negative_vs_nonneg
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1 + negative_vs_nonneg + input_noise_magnitude_centered|code),
+                              data = all_data, REML = FALSE)
+summary(modelSoC.3.12_7)
+
+```
+
+That one worked. The model with a random slope for negative feedback and input noise is the model with the maximal random effects structure built according to our hypothesis that converges. 
+Compare whether that model fits better than single random slope models
+
+include a single random slope of input noise
+```{r complex_random_effects3.12_in, echo=FALSE}
+
+modelSoC.3.12_in <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + positive_vs_nonpos*block
+                              + CESDR*negative_vs_nonneg
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1 + input_noise_magnitude_centered|code),
+                              data = all_data, REML = FALSE)
+summary(modelSoC.3.12_in)
+
+```
+
+include a single random slope of negative feedback
+```{r complex_random_effects3.12_negfb, echo=FALSE}
+
+modelSoC.3.12_negfb <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
+                              + input_noise_magnitude_centered*block
+                              + positive_vs_nonpos*block
+                              + CESDR*negative_vs_nonneg
+                              + CESDR*input_noise_magnitude_centered
+                              + ExternalLC*input_noise_magnitude_centered
+                              + (1 + negative_vs_nonneg|code),
+                              data = all_data, REML = FALSE)
+summary(modelSoC.3.12_negfb)
+
+```
+Now, compare model including random slope for input noise with that containing random slope negative feedback and that containing both variables
+
+Let's compare the non-singular models and the random intercept only one.
+```{r model_comparison2, echo=FALSE}
+
+anova(modelSoC.3.12_7, modelSoC.3.12_in, modelSoC.3.12_negfb, modelSoC.3.11)
+
+```
+The only statistic of interest for us in this output is the BIC and we're searching for the smallest BIC.
+model3.12_7 (input_noise_magnitude and negative_vs_nonneg as random slope effect) has the lowest BIC even outcompeting the random intercept only model.
+
+Now we can take our first look at the effects.
+
+```{r final selected model, echo=FALSE}
+
+summary(modelSoC.3.12_7)
+
+```
+
+#####
+Previous attempts to deal with reviewer comments...
+
+## Isolating the Between-Subjects Component of the CESDR:negative_feedback interaction
+One reviewer noted that the interaction of CESDR and negative feedback might be driven by either within-subject differences or between-subject effects.
+If it is driven by BS-differences, this would mean that individuals with higher depression scores generally provide lower SoC ratings.
+If it is driven by WS-differences, this would mean that individuals with higher depression scores are more sensitive to negative (vs. neutral and positive feedback)
+
+To investigate the origin of the interaction, examine the feedback effect size (SoC[neutral]-SoC[negative]) - The reviewer's analysis indicates a negative association of depression and feedback 
+
+```{r feedback_effect_size, echo=FALSE}
+
+#obtain feedback effect for each participant
+feedback_effect <- aggregate(SoC ~ code + feedback, data = all_data, FUN = mean)
+feedback_effect_wide <- reshape(feedback_effect, idvar = "code", timevar = "feedback", direction = "wide")
+feedback_effect_wide$fb_diff_neg_neu <- feedback_effect_wide$SoC.negative - feedback_effect_wide$SoC.neutral #contrast negative-neutral
+
+feedback_effect_wide$SoC.nonnegative <- rowMeans(
+  feedback_effect_wide[, c("SoC.neutral", "SoC.positive")], na.rm = TRUE
+)
+feedback_effect_wide$fb_diff_neg_vs_nonneg <- feedback_effect_wide$SoC.negative - feedback_effect_wide$SoC.nonnegative #contrast negative-[neutral+positive]
+
+#merge with cesdr scores
+cesdr_scores <- unique(all_data[, c("code", "CESDR")])
+fb_corr_data <- merge(feedback_effect_wide, cesdr_scores, by = "code")
+
+#perform standard correlation test negative-neutral
+cor.test(fb_corr_data$fb_diff_neg_neu, fb_corr_data$CESDR)
+
+#perform standard correlation test negative-[neutral+positive]
+cor.test(fb_corr_data$fb_diff_neg_vs_nonneg, fb_corr_data$CESDR)
+
+#alternatively... extract the random slopes for individual participants and correlate those with CESDR
+slopes <- ranef(model3.13_0)$code  # This gives the random effects per subject
+slopes$code <- rownames(slopes)
+slopes_feedback <- slopes[, c("code", "feedbacknegative")]  # Or however your contrast is named
+slopes_feedback <- slopes[, c("code", "negative_feedback")]
+
+#merge slopes with CESDR scores
+cesdr_scores <- unique(all_data[, c("code", "CESDR")])
+slope_data <- merge(slopes_feedback, cesdr_scores, by = "code")
+
+#correlate slopes and cesdr scores
+cor.test(slope_data$feedbacknegative, slope_data$CESDR)
+cor.test(slope_data$negative_feedback, slope_data$CESDR)
+
+#correlate sensorimotor noise and cesdr
+#obtain feedback effect for each participant
+inpnoise_effect <- aggregate(SoC ~ code + input_noise_magnitude, data = all_data, FUN = mean)
+inpnoise_effect_wide <- reshape(inpnoise_effect, idvar = "code", timevar = "input_noise_magnitude", direction = "wide")
+inpnoise_effect_wide$inpnoise_diff_2_0.5 <- inpnoise_effect_wide$SoC.2- inpnoise_effect_wide$SoC.0.5 # => when changing input noise from high to low, how much does the sense of control change? - it decreases
+inpnoise_effect_wide$inpnoise_diff_0.5_2 <- inpnoise_effect_wide$SoC.0.5- inpnoise_effect_wide$SoC.2 #
+
+#merge with cesdr scores
+cesdr_scores <- unique(all_data[, c("code", "CESDR")])
+inpnoise_corr_data <- merge(inpnoise_effect_wide, cesdr_scores, by = "code")
+
+cor.test(inpnoise_corr_data$inpnoise_diff_2_0.5, inpnoise_corr_data$CESDR)
+
+```
+When correlating feedback effect size with CESDR scores, we observe a significant positive correlation. This indicates that more depressed individuals show greater drops in SoC from neutral to negative feedback.
+Wehn correlating random slopes for feedback with CESDR scores, a non-significant positive correlation is obtained. This might reflect that when accounting for trial-level variance and covariates, no significant differnece in feedback effect across CESDR-R scores emerges.
+
+This might indicate that individuals with higher CESDR scores show lower ratings in response to negative feedback, but the actual feedback effect (difference neutral-negative) does not significantly differ between individuals.
+
+"To explore the relationship between depressive symptoms and individual sensitivity to negative feedback, we calculated per-participant feedback effects, reflecting the difference in sense of control in response to negative compared to neutral feedback,...
+and correlated them with CESD-R scores. This revealed a significant positive correlation, consistent with our fixed-effects interaction. However, when correlating CESD-R scores with participant-specific random slopes extracted from the mixed model, the correlation was not significant (). This likely reflects the conservative nature of empirical Bayes estimates in our model (), which account for trial-level variance and apply partial pooling. We thus interpret the interaction effect as a population-level moderation of the feedback effect by depressive symptoms, while acknowledging that individual-level variation in feedback sensitivity is not robustly captured in the model.
+
+### Back-transformation
+
+means:
+```{r transform means2, echo=FALSE}
+
+fixef(model3.13_0)[1]**2 # intercept
+fixef(model3.13_0)[2]**2 # positive_feedback
+-fixef(model3.13_0)[3]**2 # negative_feedback
+-fixef(model3.13_0)[4]**2 # input_noise_magnitude2
+fixef(model3.13_0)[5]**2 # ExternalLC
+fixef(model3.13_0)[6]**2 # CESDR
+fixef(model3.13_0)[7]**2 # block
+-fixef(model3.13_0)[8]**2 # avg_dist_trialwise
+fixef(model3.13_0)[9]**2 # negative_feedback:CESDR
+-fixef(model3.13_0)[10]**2 # input_noise_magnitude2:block
+-fixef(model3.13_0)[11]**2 #block:positive_feedback 
+-fixef(model3.13_0)[12]**2 #input_noise_magnitude2:CESDR
+fixef(model3.13_0)[13]**2 #input_noise_magnitude2:ExternalLC
+
+```
+
+standard errors:
+```{r transform sds2, echo=FALSE}
+
+print("intercept:")
+(summary(model3.13_0)$coefficients[1, "Std. Error"])**2
+
+print("positive_feedback:")
+(summary(model3.13_0)$coefficients[2, "Std. Error"])**2
+
+print("negative_feedback:")
+(summary(model3.13_0)$coefficients[3, "Std. Error"])**2
+
+print("input_noise_magnitude2:")
+(summary(model3.13_0)$coefficients[4, "Std. Error"])**2
+
+print("ExternalLC:")
+(summary(model3.13_0)$coefficients[5, "Std. Error"])**2
+
+print("CESDR:")
+(summary(model3.13_0)$coefficients[6, "Std. Error"])**2
+
+print("block:")
+(summary(model3.13_0)$coefficients[7, "Std. Error"])**2
+
+print("avg_dist_trialwise:")
+(summary(model3.13_0)$coefficients[8, "Std. Error"])**2
+
+print("negative_feedback*CESDR:")
+(summary(model3.13_0)$coefficients[9, "Std. Error"])**2
+
+print("input_noise_magnitude2*block:")
+(summary(model3.13_0)$coefficients[10, "Std. Error"])**2
+
+print("block:positive_feedback:")
+(summary(model3.13_0)$coefficients[11, "Std. Error"])**2
+
+print("input_noise_magnitude2:CESDR:")
+(summary(model3.13_0)$coefficients[12, "Std. Error"])**2
+
+print("input_noise_magnitude2:ExternalLC:")
+(summary(model3.13_0)$coefficients[13, "Std. Error"])**2
+
+```
+
+## Generating simulations based on the final selected model
+
+parametric bootstrap:
+```{r bootstrap2, include=FALSE}
+
+conf_boot <- confint(model3.13_0, nsim=1000, parm=c('feedbackpositive', 'feedbacknegative', 'input_noise_magnitude2', 'ExternalLC', 'CESDR', 'block', 'avg_dist_trialwise', 'CESDR:negative_feedback', 'input_noise_magnitude2:block','block:positive_feedback', 'input_noise_magnitude2:CESDR', 'input_noise_magnitude2:ExternalLC'), method='boot')
+
+print(conf_boot)
+
+```
+
+"...bounds of the 95% confidence interval were obtained by a parametric bootstrap with {N_iterations} iterations."
+
+```{r transform CIs2, echo=FALSE}
+
+print("positive_feedback:")
+(0.0683019140)**2
+(0.113701676)**2
+
+print("negative_feedback:")
+-(0.0985650285)**2
+-(0.064238645)**2
+
+print("input_noise_magnitude2:")
+-(0.5916369001)**2
+-(0.123486108)**2
+
+print("ExternalLC:")
+-(0.0297384563)**2
+(0.123873876)**2
+
+print("CESDR:")
+(0.0002375706)**2
+(0.012246128)**2
+
+print("block:")
+(0.0075267223)**2
+(0.014440373)**2
+
+print("avg_dist_trialwise:")
+-(0.0094036836)**2
+-(0.008517835)**2
+
+print("negative_feedback*CESDR:")
+(0.0010869024)**2
+(0.003210020)**2
+
+print("input_noise_magnitude2*block:")
+-(0.0237410934)**2
+-(0.014838012)**2
+
+print("block*positive_feedback:")
+-(0.0164930573)**2
+-(0.007777211)**2
+
+print("input_noise_magnitude2*CESDR:")
+-(0.0227133880)**2
+-(0.006507570)**2
+
+print("input_noise_magnitude2:ExternalLC:")
+#-()**2
+#-()**2
+
+```
+
+reporting our effect:
+...compared to input noise magnitude=0.5, increasing the magnitude of input noise to 2.0 significantly decreases SoC (beta=-0.080, sigma=0.002, CI=[-0.138, -0.037],  p<.001).
+
+```{r arrow_file, include=FALSE}
+# write to arrow data file
+#write_feather(all_data, "H:/Maren/Experiments/A6/Main/data/all_data.arrow")
+```
+
+# Post-hoc tests to compare effect sizes
+
+## negative vs. positive feedback
+```{r negFeedback vs. posFeedback, include=TRUE}
+
+bootstrap_data <- read_csv("data/bootstrap_data_soc.csv")
+
+# columns of interest
+# ß02: negative feedback
+# ß03: positive feedback
+# ß04: input noise:2.0
+
+negative_feedback.diffs <- -(bootstrap_data$β02)
+positive_feedback.diffs <- bootstrap_data$β03
+
+t.test(negative_feedback.diffs, positive_feedback.diffs, alternative = "two.sided", paired=TRUE)
+# we're testing whether the distribution of negative_feedback.diffs is greater than  positive_feedback.diffs
+
+```
+
+## input noise vs. negative feedback
+```{r inputNoise vs. negFeedback, include=TRUE}
+
+input_noise.diffs <- bootstrap_data$β04
+negative_feedback.diffs <- bootstrap_data$β02
+
+t.test(input_noise.diffs, negative_feedback.diffs, alternative = "two.sided", paired=TRUE)
+# we're testing whether the distribution of input_noise.diffs is smaller than  negative_feedback.diffs
+
+```
+
+# Simpler models without transformatio or exploration of random slopes
+
+## Performance
+```{r performance_easy, echo=FALSE}
+
+performance_easy <- lmer(avg_dist_trialwise ~ input_noise_magnitude * block + (1|code), data = all_data, REML = FALSE)
+
+summary(performance_easy)
+
+```
+
+```{r bootstrap_performance_bounds, include=TRUE}
+
+#confint(performance_easy, nsim=N_iterations, parm=c('input_noise_magnitude2', 'block', 'input_noise_magnitude2:block'), method='boot')
+
+```
+bounds:
+                                  2.5 %     97.5 %
+input_noise_magnitude2       20.3235842 22.1861712
+block                        -0.6562036 -0.4002673
+input_noise_magnitude2:block -0.1238160  0.2505892
+
+```{r bootstrap_performance, include=TRUE}
+
+bootstrap_performance_results <- bootMer(
+  performance_easy,
+  FUN = function(model) fixef(model),  # Extract fixed effects
+  nsim = 10000,                        # Number of bootstrap samples
+  use.u = FALSE,                       # Refit the model for each sample
+  type = "parametric"                  # Bootstrapping type
+)
+
+# Convert bootstrap estimates to a data frame
+bootstrap_performance_df <- as.data.frame(bootstrap_performance_results$t)
+colnames(bootstrap_performance_df) <- names(fixef(performance_easy))  # assign variable names
+
+# Save to CSV
+write.csv(bootstrap_performance_df, "data/simple models/bootstrap_performance_results.csv", row.names = FALSE)
+
+```
+
+
+## SoC
+I don't think we had an hypothesis for block affecting SoC.
+```{r soc_easy, echo=FALSE}
+
+soc_easy <- lmer(SoC ~ feedback + input_noise_magnitude + ExternalLC + InternalLC + CESDR + avg_dist_trialwise
+                 #+ block
+                 + feedback*input_noise_magnitude
+                 + feedback*ExternalLC
+                 + feedback*InternalLC
+                 #+ feedback*CESDR
+                 #+ #+ input_noise_magnitude*block # these weren't in our hypotheses I think...
+                 + (1|code),
+                 data = all_data, REML = FALSE)
+
+summary(soc_easy)
+
+```
+
+```{r bootstrap_soc_bounds, include=TRUE}
+
+confint(soc_easy, nsim=N_iterations, parm=c('input_noise_magnitude2', 'ExternalLC', 'avg_dist_trialwise'), method='boot')
+
+```
+
+bounds:
+                             2.5 %      97.5 %
+input_noise_magnitude2 -1.48673732 -1.32083086
+ExternalLC              0.13646153  0.62109887
+avg_dist_trialwise     -0.03710365 -0.03332908
+
+```{r bootstrap_soc, include=TRUE}
+
+bootstrap_soc_results <- bootMer(
+  
+  
+  soc_easy,
+  FUN = function(model) fixef(model),  # Extract fixed effects
+  nsim = 10000,                        # Number of bootstrap samples
+  use.u = FALSE,                       # Refit the model for each sample
+  type = "parametric"                  # Bootstrapping type
+)
+
+# Convert bootstrap estimates to a data frame
+bootstrap_soc_df <- as.data.frame(bootstrap_soc_results$t)
+colnames(bootstrap_soc_df) <- names(fixef(soc_easy))  # assign variable names
+
+# Save to CSV
+write.csv(bootstrap_soc_df, "data/simple models/bootstrap_soc_results.csv", row.names = FALSE)
+
+```
+
