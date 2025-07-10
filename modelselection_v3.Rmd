@@ -34,8 +34,10 @@ N_iterations <- 10000
 ```{r data, echo=FALSE}
 
 #paths
-trial_data_path <- paste("H:/Maren/Experiments/A6/Main/data/experiment_preprocessed/trialwise_data.csv")
-questionnaire_data_path <- paste("H:/Maren/Experiments/A6/Main/data/questionnaire_preprocessed/questionnaire_scores.csv")
+#trial_data_path <- paste("H:/Maren/Experiments/A6/Main/data/experiment_preprocessed/trialwise_data.csv")
+#questionnaire_data_path <- paste("H:/Maren/Experiments/A6/Main/data/questionnaire_preprocessed/questionnaire_scores.csv")
+trial_data_path <- paste(getwd(), "/data/trialwise_data.csv", sep="")
+questionnaire_data_path <- paste(getwd(), "/data/questionnaire_scores.csv", sep="")
 
 #load data
 trial_data <- read_csv(trial_data_path)
@@ -194,7 +196,7 @@ anova(modelSoC.3.2, modelSoC.3.1)
 ```
 The models are not significantly different. Therefore, continue with model 3.2.
 
-The interaction of positive feedback, input noise and external LC is siginficant. Test whether excluding this interaction improves model fit or not.
+The interaction of positive feedback, input noise and external LC is significant. Test whether excluding this interaction improves model fit or not.
 
 ```{r model 3.3, echo=FALSE}
 
@@ -208,7 +210,6 @@ modelSoC.3.3 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + blo
                               + CESDR*input_noise_magnitude_centered
                               + ExternalLC*feedback
                               + ExternalLC*input_noise_magnitude_centered
-                              #+ ExternalLC*feedback*input_noise_magnitude_centered #extension
                               + (1|code),
                               data = all_data, REML = FALSE)
 
@@ -318,7 +319,7 @@ summary(modelSoC.3.7)
 anova(modelSoC.3.7, modelSoC.3.6)
 
 ```
-We can safely continue with the simpler model, excluding the interactino of input noise and internal LoC.
+We can safely continue with the simpler model, excluding the interaction of input noise and internal LoC.
 
 We will now target our first main effect: InternalLC:
 ```{r model3.8, echo=FALSE}
@@ -412,11 +413,19 @@ In consideration of one reviewers comments, we use effects coding [-0.5 0.5] to 
 
 #use effect coding to center the effect of feedback within-person
 #For the CESD-R negative-feedback interaction, create a contrast of negative vs. non-negative feedback
+#all_data <- all_data %>%
+#  mutate(
+#    negative_vs_nonneg = case_when(
+#      feedback == "negative" ~ -0.5,
+#      feedback %in% c("neutral", "positive") ~ 0.5
+#    )
+#  )
+
 all_data <- all_data %>%
   mutate(
     negative_vs_nonneg = case_when(
-      feedback == "negative" ~ -0.5,
-      feedback %in% c("neutral", "positive") ~ 0.5
+      feedback == "negative" ~ 0.5,
+      feedback %in% c("neutral", "positive") ~ -0.5
     )
   )
 
@@ -595,6 +604,7 @@ summary(modelSoC.3.12_6)
 ```
 Model fails to converge. Exclude the random slope of feedback
 
+
 ```{r complex_random_effects3.12_7, echo=FALSE}
 
 modelSoC.3.12_7 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block + avg_dist_bs + avg_dist_ws + ExternalLC + CESDR
@@ -659,6 +669,57 @@ Now we can take our first look at the effects.
 summary(modelSoC.3.12_7)
 
 ```
+
+# Let's try centering the questionnaire data in our final model
+
+```{r grand_mean_centering, echo=FALSE}
+
+all_data$CESDR_centered <- all_data$CESDR - mean(all_data$CESDR, na.rm = TRUE)
+all_data$ExternalLC_centered <- all_data$ExternalLC - mean(all_data$ExternalLC, na.rm = TRUE)
+
+all_data$block_centered <- all_data$block - mean(all_data$block)  # 2.5
+
+
+```
+
+
+```{r complex_random_effects3.12_7c, echo=FALSE}
+
+modelSoC.3.12_7c <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude_centered + block_centered + avg_dist_bs + avg_dist_ws + ExternalLC_centered + CESDR_centered
+                              + input_noise_magnitude_centered*block_centered
+                              + positive_vs_nonpos*block_centered
+                              + CESDR_centered*negative_vs_nonneg
+                              + CESDR_centered*input_noise_magnitude_centered
+                              + ExternalLC_centered*input_noise_magnitude_centered
+                              + (1 + negative_vs_nonneg + input_noise_magnitude_centered|code),
+                              data = all_data, REML = FALSE)
+summary(modelSoC.3.12_7c)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #####
 Previous attempts to deal with reviewer comments...
