@@ -340,7 +340,7 @@ In this model, the interaction of CESDR and negative feedback turns out signific
 
 ```{r CESDR on inputNoise vs. negFeedback, include=TRUE}
 
-#analysis still needs to be conducted
+#analysis still needs to be conducted - compare bootstrapped effect sizes?
 
 ```
 
