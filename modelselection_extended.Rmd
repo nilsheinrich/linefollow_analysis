@@ -236,7 +236,7 @@ parametric bootstrap:
 bootstrap_results <- bootMer(
   model2.7_4,
   FUN = function(model) fixef(model),  # extract fixed effects
-  nsim = N_iterations,                           # number of bootstrap samples
+  nsim = N_iterations,                 # number of bootstrap samples
   use.u = FALSE,                       # refit the model for each sample
   type = "parametric"                  # bootstrapping type
 )
@@ -269,7 +269,7 @@ input_noise_magnitude2:block -0.0236261966 -0.014750268
 
 "...bounds of the 95% confidence interval were obtained by a parametric bootstrap with {N_iterations} iterations."
 
-```{r transform CIs2, echo=FALSE}
+```{r transform CIs, echo=FALSE}
 
 print("positive_feedback:")
 ()**2
@@ -365,6 +365,81 @@ summary(model3.expl1)
 ```
 We observe a significant negative interaction of positive feedback and block, indicating that the effect of positive feedback on SoC levels off over time.
 We see a siginficant negative interaction of input noise and CESDR, indicating that the effect of input noise (increasing input noise reduces SoC) decreases with higher depression scores.
+
+```{r bootstrap2, include=FALSE}
+
+bootstrap_results_expl <- bootMer(
+  model3.expl1,
+  FUN = function(model) fixef(model),  # extract fixed effects
+  nsim = N_iterations,                 # number of bootstrap samples
+  use.u = FALSE,                       # refit the model for each sample
+  type = "parametric"                  # bootstrapping type
+)
+# convert bootstrap estimates to a data frame
+bootstrap_df_expl <- as.data.frame(bootstrap_results_expl$t)
+colnames(bootstrap_df_expl) <- names(fixef(model3.expl1))  # assign variable names
+
+# save to CSV
+write.csv(bootstrap_df_expl, "bootstrap_results_explorative_model.csv", row.names = FALSE)
+```
+
+```{r CIs2, include=FALSE}
+
+confint(model3.expl1, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative', 'input_noise_magnitude2', 'ExternalLC', 'CESDR', 'block', 'avg_dist_trialwise', 'CESDR:negative_feedback', 'input_noise_magnitude2:block', 'input_noise_magnitude2:CESDR', 'feedbackpositive:block', 'feedbacknegative:block'), method='boot')
+
+```
+
+output:
+
+
+"...bounds of the 95% confidence interval were obtained by a parametric bootstrap with {N_iterations} iterations."
+
+```{r transform CIs2, echo=FALSE}
+
+print("positive_feedback:")
+()**2
+()**2
+
+print("negative_feedback:")
+-()**2
+-()**2
+
+print("input_noise_magnitude2:")
+-()**2
+-()**2
+
+print("ExternalLC:")
+()**2
+()**2
+
+print("CESDR:")
+-()**2
+()**2
+
+print("block:")
+()**2
+()**2
+
+print("avg_dist_trialwise:")
+-()**2
+-()**2
+
+print("negative_feedback*CESDR:")
+()**2
+()**2
+
+print("input_noise_magnitude2*block:")
+-()**2
+-()**2
+
+print('input_noise_magnitude2:CESDR:')
+
+print('feedbackpositive:block:')
+
+print('feedbacknegative:block:')
+
+```
+
 
 In this model, the interaction of CESDR and negative feedback turns out significant again. Lets test whether the effect of CESDR on SoC is stronger for a) feedback, or b) input noise
 
