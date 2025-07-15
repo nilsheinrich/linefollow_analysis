@@ -231,11 +231,41 @@ print("input_noise_magnitude2*block:")
 ## Generating simulations based on the final selected model
 
 parametric bootstrap:
-```{r bootstrap2, include=FALSE}
+```{r bootstrap, include=FALSE}
 
-#confint(model2.in, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative', 'input_noise_magnitude2', 'ExternalLC', 'CESDR', 'block', 'avg_dist_trialwise', 'CESDR:negative_feedback', 'input_noise_magnitude2:block'), method='boot')
+bootstrap_results <- bootMer(
+  model2.7_4,
+  FUN = function(model) fixef(model),  # extract fixed effects
+  nsim = N_iterations,                           # number of bootstrap samples
+  use.u = FALSE,                       # refit the model for each sample
+  type = "parametric"                  # bootstrapping type
+)
+# convert bootstrap estimates to a data frame
+bootstrap_df <- as.data.frame(bootstrap_results$t)
+colnames(bootstrap_df) <- names(fixef(model2.7_4))  # assign variable names
+
+# save to CSV
+write.csv(bootstrap_df, "bootstrap_results_extended_model.csv", row.names = FALSE)
+```
+
+running again a parametric bootstrap, also to check on the output of the function above...
+```{r CIs, include=FALSE}
+
+confint(model2.7_4, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative', 'input_noise_magnitude2', 'ExternalLC', 'CESDR', 'block', 'avg_dist_trialwise', 'CESDR:negative_feedback', 'input_noise_magnitude2:block'), method='boot')
 
 ```
+
+output:
+                                     2.5 %       97.5 %
+feedbackpositive              0.0250211797  0.048341714
+feedbacknegative             -0.1023222606 -0.040202238
+input_noise_magnitude2       -0.3699995313 -0.192771884
+ExternalLC                    0.0429972137  0.167330254
+CESDR                        -0.0051382091  0.004348421
+block                         0.0036872229  0.010000821
+avg_dist_trialwise           -0.0094587220 -0.008564743
+CESDR:negative_feedback      -0.0007068882  0.003268267
+input_noise_magnitude2:block -0.0236261966 -0.014750268
 
 "...bounds of the 95% confidence interval were obtained by a parametric bootstrap with {N_iterations} iterations."
 
@@ -372,7 +402,7 @@ The correlation analysis indicates a significant positive correlation of CESDR s
 
 To-Do: 
 1) Bootstrap final model results (from main model) and create CIs
-2) compare relative positive vs. negative effect size on SoC
+2) compare relative positive vs. negative feedback effect size on SoC
 3) compare input noise vs. feedback effect size on soc
 4) bootstrap exploratory extended model and create CIs
 5) compare interaction effect size CESDR:neg_fb and CESDR:input_noise
