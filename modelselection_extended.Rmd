@@ -390,6 +390,19 @@ confint(model3.expl1, nsim=N_iterations, parm=c('feedbackpositive', 'feedbackneg
 ```
 
 output:
+                                     2.5 %       97.5 %
+feedbackpositive              0.0588645082  0.109842708
+feedbacknegative             -0.1317334386 -0.056277349
+input_noise_magnitude2       -0.2514920216  0.008583518
+ExternalLC                    0.0432915920  0.167390077
+CESDR                        -0.0002837581  0.011821129
+block                         0.0051872106  0.013773301
+avg_dist_trialwise           -0.0094380585 -0.008543980
+CESDR:negative_feedback       0.0001314951  0.004165048
+input_noise_magnitude2:block -0.0236197526 -0.014760653
+input_noise_magnitude2:CESDR -0.0221399435 -0.005125305
+feedbackpositive:block       -0.0156583980 -0.005609648
+feedbacknegative:block       -0.0020555077  0.007781237
 
 
 "...bounds of the 95% confidence interval were obtained by a parametric bootstrap with {N_iterations} iterations."
@@ -440,7 +453,6 @@ print('feedbacknegative:block:')
 
 ```
 
-
 In this model, the interaction of CESDR and negative feedback turns out significant again. Lets test whether the effect of CESDR on SoC is stronger for a) feedback, or b) input noise
 
 ```{r CESDR on inputNoise vs. negFeedback, include=TRUE}
@@ -476,9 +488,9 @@ The correlation analysis indicates a significant positive correlation of CESDR s
 
 
 To-Do: 
-1) Bootstrap final model results (from main model) and create CIs
-2) compare relative positive vs. negative feedback effect size on SoC
+1) Bootstrap final model results (from main model) and create CIs.    ✓
+2) compare relative positive vs. negative feedback effect size on SoC 
 3) compare input noise vs. feedback effect size on soc
-4) bootstrap exploratory extended model and create CIs
+4) bootstrap exploratory extended model and create CIs                ✓
 5) compare interaction effect size CESDR:neg_fb and CESDR:input_noise
 6) ..?
