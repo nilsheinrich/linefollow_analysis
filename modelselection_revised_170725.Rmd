@@ -31,12 +31,9 @@ N_iterations <- 10000
 
 
 ```{r data, echo=FALSE}
-#set path
-setwd("C:/Users/maren/Documents/GitHub/linefollow_analysis/")
-
 #paths
-trial_data_path <- paste("C:/Users/maren/Documents/GitHub/linefollow_analysis/data/trialwise_data.csv", sep="")
-questionnaire_data_path <- paste("C:/Users/maren/Documents/GitHub/linefollow_analysis/data/questionnaire_scores.csv", sep="")
+trial_data_path <- paste(getwd(), "/data/trialwise_data.csv", sep="")
+questionnaire_data_path <- paste(getwd(), "/data/questionnaire_scores.csv", sep="")
 
 #load data
 trial_data <- read_csv(trial_data_path)
@@ -586,31 +583,66 @@ print("negative_feedback*CESDR:")
 (summary(model2.8_in)$coefficients[10, "Std. Error"])**2
 
 print("input_noise_magnitude2*block:")
-(summary(model2.8_in)$coefficients[11 "Std. Error"])**2
+(summary(model2.8_in)$coefficients[11, "Std. Error"])**2
 
 print("positive_feedback*block:")
-(summary(model2.8_in)$coefficients[12 "Std. Error"])**2
+(summary(model2.8_in)$coefficients[12, "Std. Error"])**2
 
 print("negative_feedback*block:")
-(summary(model2.8_in)$coefficients[13 "Std. Error"])**2
+(summary(model2.8_in)$coefficients[13, "Std. Error"])**2
 
 print("input_noise_magnitude2*CESDR:")
-(summary(model2.8_in)$coefficients[14 "Std. Error"])**2
+(summary(model2.8_in)$coefficients[14, "Std. Error"])**2
 
 print("input_noise_magnitude2*ExternalLC:")
-(summary(model2.8_in)$coefficients[15 "Std. Error"])**2
+(summary(model2.8_in)$coefficients[15, "Std. Error"])**2
 
 ```
 
 ## Generating simulations based on the final selected model
 
 parametric bootstrap:
+```{r bootstrap, include=FALSE}
+
+bootstrap_results <- bootMer(
+  model2.8_in,
+  FUN = function(model) fixef(model),  # extract fixed effects
+  nsim = N_iterations,                 # number of bootstrap samples
+  use.u = FALSE,                       # refit the model for each sample
+  type = "parametric"                  # bootstrapping type
+)
+# convert bootstrap estimates to a data frame
+bootstrap_df <- as.data.frame(bootstrap_results$t)
+colnames(bootstrap_df) <- names(fixef(model2.8_in))  # assign variable names
+
+# save to CSV
+write.csv(bootstrap_df, "bootstrap_results_revised_model.csv", row.names = FALSE)
+```
+
+parametric bootstrap:
 ```{r bootstrap2, include=FALSE}
 
-#confint(model2.8_in, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative', 'input_noise_magnitude2', 'ExternalLC', 'CESDR', 'block', 'avg_dist_trialwise', 'feedbackpositive:CESDR', 'feedbacknegative:CESDR','input_noise_magnitude2:block', 'feedbackpositive:block', 'feedbacknegative:block', 'input_noise_magnitude2:CESDR', 'input_noise_magnitude2:ExternalLC'), method='boot')
+confint(model2.8_in, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative', 'input_noise_magnitude2', 'ExternalLC', 'CESDR', 'block', 'avg_dist_trialwise', 'feedbackpositive:CESDR', 'feedbacknegative:CESDR','input_noise_magnitude2:block', 'feedbackpositive:block', 'feedbacknegative:block', 'input_noise_magnitude2:CESDR', 'input_noise_magnitude2:ExternalLC'), method='boot')
 
-#Notiz an Nils: confint() input schon an neues Modell angepasst
 ```
+
+Results:
+                                          2.5 %        97.5 %
+feedbackpositive                   5.866217e-02  0.1180111522
+feedbacknegative                  -1.215921e-01 -0.0624626506
+input_noise_magnitude2            -5.940525e-01 -0.1216488362
+ExternalLC                        -2.934276e-02  0.1238230001
+CESDR                              5.751026e-05  0.0124864176
+block                              5.328455e-03  0.0139202633
+avg_dist_trialwise                -9.406878e-03 -0.0085236969
+feedbackpositive:CESDR            -1.512891e-03  0.0009227763
+feedbacknegative:CESDR             7.794146e-04  0.0032266508
+input_noise_magnitude2:block      -2.370946e-02 -0.0149202516
+feedbackpositive:block            -1.569780e-02 -0.0055849958
+feedbacknegative:block            -2.350713e-03  0.0077347537
+input_noise_magnitude2:CESDR      -2.277708e-02 -0.0065617561
+input_noise_magnitude2:ExternalLC  1.754305e-02  0.2192967353
+
 
 "...bounds of the 95% confidence interval were obtained by a parametric bootstrap with {N_iterations} iterations."
 
