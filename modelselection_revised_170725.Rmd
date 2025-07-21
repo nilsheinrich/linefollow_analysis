@@ -649,44 +649,61 @@ input_noise_magnitude2:ExternalLC  1.754305e-02  0.2192967353
 ```{r transform CIs2, echo=FALSE}
 
 print("positive_feedback:")
-()**2
-()**2
+(5.866217e-02)**2
+(0.1180111522)**2
 
 print("negative_feedback:")
--()**2
--()**2
+-(-1.215921e-01 )**2
+-(-0.0624626506)**2
 
-print("input_noise_magnitude2:")
--()**2
--()**2
+meaprint("input_noise_magnitude2:")
+-(-5.940525e-01)**2
+-( -0.1216488362)**2
 
 print("ExternalLC:")
-()**2
-()**2
+-(-2.934276e-02)**2
+(0.1238230001)**2
 
 print("CESDR:")
--()**2
-()**2
+(5.751026e-05)**2
+(0.0124864176)**2
 
 print("block:")
-()**2
-()**2
+( 5.328455e-03)**2
+(0.0139202633)**2
 
 print("avg_dist_trialwise:")
--()**2
--()**2
+-( -9.406878e-03)**2
+-(-0.0085236969)**2
 
-print("negative_feedback*CESDR:")
-()**2
-()**2
+print("feedbacknegative:CESDR:")
+(7.794146e-04)**2
+(0.0032266508)**2
+
+print("feedbackpositive:CESDR:")
+-(-1.512891e-03)**2
+(0.0009227763)**2
 
 print("input_noise_magnitude2*block:")
--()**2
--()**2
+-(-2.370946e-02)**2
+-(-0.0149202516)**2
 
+print("feedbackpositive:block:")
+-(-1.569780e-02)**2
+-(-0.0055849958)**2
+
+print("feedbacknegative:block:")
+-(-2.350713e-03 )**2
+(0.0077347537)**2
+
+print("input_noise_magnitude2:ExternalLC:")
+(1.754305e-02)**2
+( 0.2192967353)**2
+
+print("input_noise_magnitude2:CESDR:")
+-(-2.277708e-02)**2
+-(-0.0065617561)**2
 ```
-
-#####adjust script from here onwards!
 
 reporting our effect:
 ...compared to input noise magnitude=0.5, increasing the magnitude of input noise to 2.0 significantly decreases SoC (beta=-0.080, sigma=0.002, CI=[-0.138, -0.037],  p<.001).
@@ -701,15 +718,10 @@ reporting our effect:
 ## negative vs. positive feedback
 ```{r negFeedback vs. posFeedback, include=TRUE}
 
-bootstrap_data <- read_csv("data/bootstrap_data_soc.csv")
+bootstrap_data <- read_csv("C:/Users/maren/Documents/GitHub/linefollow_analysis/data/bootstrap_results_revised_model.csv")
 
-# columns of interest
-# ß02: negative feedback
-# ß03: positive feedback
-# ß04: input noise:2.0
-
-negative_feedback.diffs <- -(bootstrap_data$β02)
-positive_feedback.diffs <- bootstrap_data$β03
+negative_feedback.diffs <- abs(bootstrap_data$feedbacknegative)
+positive_feedback.diffs <- abs(bootstrap_data$feedbackpositive)
 
 t.test(negative_feedback.diffs, positive_feedback.diffs, alternative = "two.sided", paired=TRUE)
 # we're testing whether the distribution of negative_feedback.diffs is greater than  positive_feedback.diffs
@@ -719,103 +731,32 @@ t.test(negative_feedback.diffs, positive_feedback.diffs, alternative = "two.side
 ## input noise vs. negative feedback
 ```{r inputNoise vs. negFeedback, include=TRUE}
 
-input_noise.diffs <- bootstrap_data$β04
-negative_feedback.diffs <- bootstrap_data$β02
+input_noise.diffs <- abs(bootstrap_data$input_noise_magnitude2)
+negative_feedback.diffs <- abs(bootstrap_data$feedbacknegative)
+positive_feedback.diffs <- abs(bootstrap_data$feedbackpositive)
 
+#negative fb
 t.test(input_noise.diffs, negative_feedback.diffs, alternative = "two.sided", paired=TRUE)
 # we're testing whether the distribution of input_noise.diffs is smaller than  negative_feedback.diffs
 
-```
+#positive fb
+t.test(input_noise.diffs, positive_feedback.diffs, alternative = "two.sided", paired=TRUE)
 
-
-
-# Simpler models without transformatio or exploration of random slopes
-
-## Performance
-```{r performance_easy, echo=FALSE}
-
-performance_easy <- lmer(avg_dist_trialwise ~ input_noise_magnitude * block + (1|code), data = all_data, REML = FALSE)
-
-summary(performance_easy)
+#correct alpha values for multiple comparison *2 => p <.2.2e-16**2 = p < .001
 
 ```
 
-```{r bootstrap_performance_bounds, include=TRUE}
+## input noise:CESDR vs. negative feedback:CESDR
+```{r inputNoise*CESDR vs. CESDR*negFeedback, include=TRUE}
 
-#confint(performance_easy, nsim=N_iterations, parm=c('input_noise_magnitude2', 'block', 'input_noise_magnitude2:block'), method='boot')
+CESDR_FBneg.diffs <- abs(bootstrap_data$`feedbacknegative:CESDR`)
+CESDR_inpnoise.diffs <- abs(bootstrap_data$`input_noise_magnitude2:CESDR`)
 
-```
-bounds:
-                                  2.5 %     97.5 %
-input_noise_magnitude2       20.3235842 22.1861712
-block                        -0.6562036 -0.4002673
-input_noise_magnitude2:block -0.1238160  0.2505892
+#negative fb
+t.test(CESDR_inpnoise.diffs, CESDR_FBneg.diffs, alternative = "two.sided", paired=TRUE)
+# we're testing whether the distribution of CESDR_FBneg.diffs is different to CESDR_inpnoise.diffs
 
-```{r bootstrap_performance, include=TRUE}
-
-bootstrap_performance_results <- bootMer(
-  performance_easy,
-  FUN = function(model) fixef(model),  # Extract fixed effects
-  nsim = 10000,                        # Number of bootstrap samples
-  use.u = FALSE,                       # Refit the model for each sample
-  type = "parametric"                  # Bootstrapping type
-)
-
-# Convert bootstrap estimates to a data frame
-bootstrap_performance_df <- as.data.frame(bootstrap_performance_results$t)
-colnames(bootstrap_performance_df) <- names(fixef(performance_easy))  # assign variable names
-
-# Save to CSV
-write.csv(bootstrap_performance_df, "data/simple models/bootstrap_performance_results.csv", row.names = FALSE)
-
-```
-
-
-## SoC
-I don't think we had an hypothesis for block affecting SoC.
-```{r soc_easy, echo=FALSE}
-
-soc_easy <- lmer(SoC ~ feedback + input_noise_magnitude + ExternalLC + InternalLC + CESDR + avg_dist_trialwise
-                 #+ block
-                 + feedback*input_noise_magnitude
-                 + feedback*ExternalLC
-                 + feedback*InternalLC
-                 #+ feedback*CESDR
-                 #+ #+ input_noise_magnitude*block # these weren't in our hypotheses I think...
-                 + (1|code),
-                 data = all_data, REML = FALSE)
-
-summary(soc_easy)
-
-```
-
-```{r bootstrap_soc_bounds, include=TRUE}
-
-confint(soc_easy, nsim=N_iterations, parm=c('input_noise_magnitude2', 'ExternalLC', 'avg_dist_trialwise'), method='boot')
-
-```
-
-bounds:
-                             2.5 %      97.5 %
-input_noise_magnitude2 -1.48673732 -1.32083086
-ExternalLC              0.13646153  0.62109887
-avg_dist_trialwise     -0.03710365 -0.03332908
-
-```{r bootstrap_soc, include=TRUE}
-
-bootstrap_soc_results <- bootMer(
-  soc_easy,
-  FUN = function(model) fixef(model),  # Extract fixed effects
-  nsim = 10000,                        # Number of bootstrap samples
-  use.u = FALSE,                       # Refit the model for each sample
-  type = "parametric"                  # Bootstrapping type
-)
-
-# Convert bootstrap estimates to a data frame
-bootstrap_soc_df <- as.data.frame(bootstrap_soc_results$t)
-colnames(bootstrap_soc_df) <- names(fixef(soc_easy))  # assign variable names
-
-# Save to CSV
-write.csv(bootstrap_soc_df, "data/simple models/bootstrap_soc_results.csv", row.names = FALSE)
+mean(CESDR_FBneg.diffs)
+mean(CESDR_inpnoise.diffs)
 
 ```
