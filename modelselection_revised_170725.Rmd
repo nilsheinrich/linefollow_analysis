@@ -5,6 +5,10 @@ date: "2025-07-17"
 output: pdf_document
 ---
 
+This script contains the revised statistical analysis of data reported in the Manuscript "Am I in control? The dynamics of sensory information, performance feedback, and personality in shaping the sense of control". 
+Revisions built upon valuable suggestions received from two anonymous reviewers during the peer-review process. 
+Specifically, compared to the original analysis, reported in model_selection.Rmd, the current script contains additional interactions and follow-up analyses for a model predicting participants' sense of control using different low-level and high-level cues of control.
+
 ```{r global, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -255,6 +259,7 @@ model2.5 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + Int
 summary(model2.5)
 
 ```
+
 Compare model fit 2.5 vs. 2.4
 ```{r likelihoodratio test2.5, echo=FALSE}
 
@@ -281,7 +286,7 @@ summary(model2.6)
 ```
 
 Compare model fit 2.6 vs. 2.5
-```{r likelihoodratio test2.3, echo=FALSE}
+```{r likelihoodratio test2.6, echo=FALSE}
 
 anova(model2.6, model2.5)
 
@@ -304,6 +309,7 @@ model2.7 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + Int
 summary(model2.7)
 
 ```
+
 Compare model fit 2.7 vs. 2.6
 ```{r likelihoodratio test2.7, echo=FALSE}
 
@@ -351,6 +357,7 @@ model2.9 <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CES
 summary(model2.9)
 
 ```
+
 Compare model fit 2.9 vs. 2.8
 ```{r likelihoodratio test2.9, echo=FALSE}
 
@@ -359,7 +366,7 @@ anova(model2.9, model2.8)
 ```
 We see significance. This means that the models are significantly different from another in their predictive power and we shouldn't just throw out the interaction term. 
 
-We also see a significant interaction of positive feedback and block but not of negative feedback and block. Should we exclude this interactoin from model 2.8?
+We also see a significant interaction of positive feedback and block but not of negative feedback and block. Should we exclude this interaction from model 2.8?
 
 Eliminating the complete interaction term block*Feedback
 ```{r model2.10, echo=FALSE}
@@ -495,7 +502,7 @@ summary(model2.8_fb)
 ```
 Also singular.
 
-only keep random slope for inpput_noise
+only keep random slope for input_noise
 ```{r random_slope.fb, echo=FALSE}
 
 model2.8_in <- lmer(sqrt(SoC) ~ feedback + input_noise_magnitude + ExternalLC + CESDR + block + avg_dist_trialwise
@@ -598,7 +605,6 @@ print("input_noise_magnitude2*ExternalLC:")
 (summary(model2.8_in)$coefficients[15, "Std. Error"])**2
 
 ```
-
 ## Generating simulations based on the final selected model
 
 parametric bootstrap:
@@ -622,7 +628,7 @@ write.csv(bootstrap_df, "bootstrap_results_revised_model.csv", row.names = FALSE
 parametric bootstrap:
 ```{r bootstrap2, include=FALSE}
 
-confint(model2.8_in, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative', 'input_noise_magnitude2', 'ExternalLC', 'CESDR', 'block', 'avg_dist_trialwise', 'feedbackpositive:CESDR', 'feedbacknegative:CESDR','input_noise_magnitude2:block', 'feedbackpositive:block', 'feedbacknegative:block', 'input_noise_magnitude2:CESDR', 'input_noise_magnitude2:ExternalLC'), method='boot')
+#confint(model2.8_in, nsim=N_iterations, parm=c('feedbackpositive', 'feedbacknegative', 'input_noise_magnitude2', 'ExternalLC', 'CESDR', 'block', 'avg_dist_trialwise', 'feedbackpositive:CESDR', #'feedbacknegative:CESDR','input_noise_magnitude2:block', 'feedbackpositive:block', 'feedbacknegative:block', 'input_noise_magnitude2:CESDR', 'input_noise_magnitude2:ExternalLC'), method='boot')
 
 ```
 
@@ -704,7 +710,6 @@ print("input_noise_magnitude2:CESDR:")
 -(-2.277708e-02)**2
 -(-0.0065617561)**2
 ```
-
 reporting our effect:
 ...compared to input noise magnitude=0.5, increasing the magnitude of input noise to 2.0 significantly decreases SoC (beta=-0.080, sigma=0.002, CI=[-0.138, -0.037],  p<.001).
 
@@ -724,9 +729,14 @@ negative_feedback.diffs <- abs(bootstrap_data$feedbacknegative)
 positive_feedback.diffs <- abs(bootstrap_data$feedbackpositive)
 
 t.test(negative_feedback.diffs, positive_feedback.diffs, alternative = "two.sided", paired=TRUE)
-# we're testing whether the distribution of negative_feedback.diffs is greater than  positive_feedback.diffs
+# we're testing whether the distribution of negative_feedback.diffs is different from that of positive_feedback.diffs
+
+mean(bootstrap_data$feedbacknegative)
+mean(bootstrap_data$feedbackpositive)
+
 
 ```
+The effect of negative FB on SoC is signficantly larger than the effect of positive feedback on SoC. 
 
 ## input noise vs. negative feedback
 ```{r inputNoise vs. negFeedback, include=TRUE}
@@ -744,7 +754,12 @@ t.test(input_noise.diffs, positive_feedback.diffs, alternative = "two.sided", pa
 
 #correct alpha values for multiple comparison *2 => p <.2.2e-16**2 = p < .001
 
+mean(bootstrap_data$input_noise_magnitude2)
+mean(bootstrap_data$feedbacknegative)
+mean(bootstrap_data$feedbackpositive)
+
 ```
+The effect of input noise on SOC is significantly stronger than the effect of either positive or negative feedback.
 
 ## input noise:CESDR vs. negative feedback:CESDR
 ```{r inputNoise*CESDR vs. CESDR*negFeedback, include=TRUE}
@@ -760,3 +775,54 @@ mean(CESDR_FBneg.diffs)
 mean(CESDR_inpnoise.diffs)
 
 ```
+The effect of CESDR on the effect of Input noise is significantly stronger than the effect of CESDR on negative feedback.
+
+## correlational analyses CESD-R score and feedback effect size
+Analyses are performed to follow-up BSxWS interactions. We extract the effect size of the WS-effect and correlate it with its BS-interaction counterpart. 
+This allows us to examine whether the interactions are driven by a different size of the effect between individuals, or a more general effect of individual differences on the effect of the WS-factor on SoC. 
+
+```{r follow-up correlations CESDR and negFeedback effect, include=TRUE}
+ 
+#correlate each participants' average neutral-negative SoC difference with CESD-R score
+pp_wise_negeff <- all_data %>%
+  group_by(code,feedback, CESDR) %>%
+  summarise(avg_soc = mean(SoC, na.rm = TRUE), .groups = "drop")
+
+avg_soc_wide_fb <- pp_wise_negeff %>%
+  pivot_wider(names_from = feedback, values_from = avg_soc, names_prefix = "mean_SoC_")
+
+avg_soc_wide_fb <- avg_soc_wide_fb %>%
+  mutate(diff_negneu = mean_SoC_neutral - mean_SoC_negative)
+
+cor.test(avg_soc_wide_fb$CESDR, avg_soc_wide_fb$diff_negneu)
+
+```
+The effect of negative feedback [neutral-negative] on SoC decreases with increasing depression scores. 
+
+## correlational analyses CESD-R score X input noise  & Correlational analyses External LC score X input noise
+```{r inputNoise*CESDR vs. CESDR*negFeedback, include=TRUE}
+ 
+#correlate each participants' average low-high input noise SoC difference with CESD-R score
+pp_wise_inpNoise_eff <- all_data %>%
+  group_by(code,input_noise_magnitude, CESDR, ExternalLC) %>%
+  summarise(avg_soc_inpn = mean(SoC, na.rm = TRUE), .groups = "drop")
+
+avg_soc_wide_inpnoise <- pp_wise_inpNoise_eff %>%
+  pivot_wider(names_from = input_noise_magnitude, values_from = avg_soc_inpn, names_prefix = "mean_SoC_")
+
+avg_soc_wide_inpnoise <- avg_soc_wide_inpnoise %>%
+  mutate(diff_low_high = mean_SoC_0.5 - mean_SoC_2)
+
+cor.test(avg_soc_wide_inpnoise$CESDR, avg_soc_wide_inpnoise$diff_low_high)
+
+#correlate each participants' average neutral-negative SoC difference with ExternalLC score
+cor.test(avg_soc_wide_inpnoise$ExternalLC, avg_soc_wide_inpnoise$diff_low_high)
+
+#correlate participants' average SoC score (across input noise conditions) with external LC score
+avg_soc_wide_inpnoise <- avg_soc_wide_inpnoise %>%
+  mutate(mean_soc_inpnoise = (mean_SoC_0.5 + mean_SoC_2)/2)
+
+cor.test(avg_soc_wide_inpnoise$ExternalLC, avg_soc_wide_inpnoise$mean_soc_inpnoise)
+```
+
+
