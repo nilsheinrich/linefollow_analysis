@@ -605,6 +605,44 @@ print("input_noise_magnitude2*ExternalLC:")
 (summary(model2.8_in)$coefficients[15, "Std. Error"])**2
 
 ```
+
+## Computing confidence intervals for plotting
+
+```{r bootstrap, include=FALSE}
+
+# create a grid of all combinations we need predictions for
+newdata <- expand.grid(
+  input_noise_magnitude = c(0.5, 2.0),
+  block = 1:4,
+  feedback = c("positive", "negative", "neutral"),
+  CESDR = mean(all_data$CESDR),
+  ExternalLC = mean(all_data$ExternalLC),
+  avg_dist_trialwise = mean(all_data$avg_dist_trialwise),
+  code = NA  # random effects are not included
+)
+
+# ensure all factor variables have same levels
+newdata$feedback <- factor(newdata$feedback, levels = levels(all_data$feedback))
+# make input noise numeric
+newdata$input_noise_magnitude <- factor(newdata$input_noise_magnitude, levels = levels(all_data$input_noise_magnitude))
+
+# model matrix (drop response)
+X <- model.matrix(delete.response(terms(model2.8_in)), newdata)
+
+# fixed effects and variance
+betas <- fixef(model2.8_in)
+preds <- X %*% betas
+se <- sqrt(diag(X %*% vcov(model2.8_in) %*% t(X)))
+
+# 4. 95% confidence intervals
+newdata$fit <- preds
+newdata$lower <- preds - 1.96 * se
+newdata$upper <- preds + 1.96 * se
+
+write.csv(newdata, "all_model_predictions.csv", row.names = FALSE)
+
+```
+
 ## Generating simulations based on the final selected model
 
 parametric bootstrap:
